@@ -244,12 +244,16 @@ export const startAnalyticsWorker = () => {
           await client.query(uniqueQueryStr, uniqueValues);
         }
 
+        const urlTotalClicksMap = {};
         const uniqueShortCodes = Object.keys(urlClicksMap);
         for (const code of uniqueShortCodes) {
-          await client.query(
-            "UPDATE urls SET clicks = clicks + $1, last_visited = GREATEST(COALESCE(last_visited, $2::timestamp), $2::timestamp) WHERE short_code = $3",
+          const { rows: updatedRows } = await client.query(
+            "UPDATE urls SET clicks = clicks + $1, last_visited = GREATEST(COALESCE(last_visited, $2::timestamp), $2::timestamp) WHERE short_code = $3 RETURNING clicks",
             [urlClicksMap[code], urlLastVisitMap[code], code],
           );
+          if (updatedRows[0]) {
+            urlTotalClicksMap[code] = parseInt(updatedRows[0].clicks, 10);
+          }
         }
 
         const maxClicksResult = await client.query(
@@ -279,7 +283,10 @@ export const startAnalyticsWorker = () => {
 
         // Phase 3 (Task 3.4): Broadcast committed click events via SSE
         for (const evt of eventsToEmit) {
-          eventBus.emit(`click:${evt.shortCode}`, evt);
+          eventBus.emit(`click:${evt.shortCode}`, {
+            ...evt,
+            totalClicks: urlTotalClicksMap[evt.shortCode],
+          });
         }
 
         console.log(

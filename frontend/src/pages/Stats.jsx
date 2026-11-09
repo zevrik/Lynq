@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -40,27 +40,54 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
   // SSE Live Pulse State
   const [liveClick, setLiveClick] = useState(null);
   const [liveConnected, setLiveConnected] = useState(false);
-  const [liveClickBump, setLiveClickBump] = useState(0);
+  const [liveTotalClicks, setLiveTotalClicks] = useState(null);
+  const [unSyncedBumps, setUnSyncedBumps] = useState(0);
+
+  const activeShortCodeRef = useRef(shortCode);
+  activeShortCodeRef.current = shortCode;
 
   // ── Fetch Analytics Data ───────────────────────────────────────────────────
-  const fetchAnalytics = useCallback(async () => {
-    if (!shortCode) return;
-    setLoading(true);
-    setError(null);
+  const fetchAnalytics = useCallback(async (silent = false) => {
+    const requestedCode = shortCode;
+    if (!requestedCode) return;
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const result = await getUrlInfo(shortCode);
-      setData(result);
+      const result = await getUrlInfo(requestedCode);
+      if (activeShortCodeRef.current === requestedCode) {
+        setData(result);
+      }
     } catch (err) {
-      console.error('Failed to load stats for', shortCode, err);
-      setError(err?.response?.data?.error || 'Short link not found or analytics unavailable.');
+      if (!silent) {
+        console.error('Failed to load stats for', requestedCode, err);
+        setError(err?.response?.data?.error || 'Short link not found or analytics unavailable.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [shortCode]);
 
+  const fetchAnalyticsRef = useRef(fetchAnalytics);
+  fetchAnalyticsRef.current = fetchAnalytics;
+
   useEffect(() => {
-    fetchAnalytics();
+    setLiveClick(null);
+    setLiveConnected(false);
+    setLiveTotalClicks(null);
+    setUnSyncedBumps(0);
+    fetchAnalytics(false);
   }, [fetchAnalytics]);
+
+  useEffect(() => {
+    setUnSyncedBumps(0);
+    if (liveTotalClicks !== null && (data?.clicks ?? 0) >= liveTotalClicks) {
+      setLiveTotalClicks(null);
+    }
+  }, [data, liveTotalClicks]);
 
   // ── Fetch Link Health & AI Destination Summary (Link Preview) ─────────────
   useEffect(() => {
@@ -100,7 +127,12 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
             setLiveConnected(true);
           } else if (payload.type === 'click') {
             setLiveClick(payload);
-            setLiveClickBump((prev) => prev + 1);
+            if (typeof payload.totalClicks === 'number') {
+              setLiveTotalClicks((prev) => Math.max(prev ?? 0, payload.totalClicks));
+            } else {
+              setUnSyncedBumps((prev) => prev + 1);
+            }
+            fetchAnalyticsRef.current?.(true);
           }
         } catch {}
       };
@@ -172,7 +204,12 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
     });
   }, [data?.devices]);
 
-  const totalClicksCount = (data?.clicks || 0) + liveClickBump;
+  const serverClicks = data?.clicks || 0;
+  const totalClicksCount =
+    liveTotalClicks !== null
+      ? Math.max(serverClicks, liveTotalClicks)
+      : serverClicks + unSyncedBumps;
+  const pendingLiveClicks = Math.max(0, totalClicksCount - serverClicks);
   const topCountry = data?.countries?.[0] || null;
   const topRegion = data?.regions?.[0] || null;
   const topReferrer = data?.referrers?.[0] || null;
@@ -417,7 +454,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
             <div>
               <div className={styles.statVal}>{totalClicksCount.toLocaleString()}</div>
               <div className={styles.statLbl}>Total Visits</div>
-              {liveClickBump > 0 && <div className={styles.statSub}>+{liveClickBump} real-time</div>}
+              {pendingLiveClicks > 0 && <div className={styles.statSub}>+{pendingLiveClicks} real-time</div>}
             </div>
           </div>
 

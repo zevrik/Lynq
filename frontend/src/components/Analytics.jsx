@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -44,14 +44,32 @@ function StatBox({ label, value, icon, subtext }) {
   );
 }
 
-export default function Analytics({ data, theme }) {
+export default function Analytics({ data, theme, onRefresh }) {
   const isLight = theme
     ? theme === 'light'
     : (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
   const [timelineMode, setTimelineMode] = useState('total'); // 'total' | 'unique'
   const [liveClick, setLiveClick] = useState(null);
   const [liveConnected, setLiveConnected] = useState(false);
-  const [liveClickBump, setLiveClickBump] = useState(0);
+  const [liveTotalClicks, setLiveTotalClicks] = useState(null);
+  const [unSyncedBumps, setUnSyncedBumps] = useState(0);
+
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+
+  useEffect(() => {
+    setLiveClick(null);
+    setLiveConnected(false);
+    setLiveTotalClicks(null);
+    setUnSyncedBumps(0);
+  }, [data?.shortCode]);
+
+  useEffect(() => {
+    setUnSyncedBumps(0);
+    if (liveTotalClicks !== null && (data?.clicks ?? 0) >= liveTotalClicks) {
+      setLiveTotalClicks(null);
+    }
+  }, [data, liveTotalClicks]);
 
   // ── Task 3.4: Server-Sent Events (SSE) Live Click Stream ────────────────
   useEffect(() => {
@@ -74,7 +92,12 @@ export default function Analytics({ data, theme }) {
             setLiveConnected(true);
           } else if (payload.type === 'click') {
             setLiveClick(payload);
-            setLiveClickBump((prev) => prev + 1);
+            if (typeof payload.totalClicks === 'number') {
+              setLiveTotalClicks((prev) => Math.max(prev ?? 0, payload.totalClicks));
+            } else {
+              setUnSyncedBumps((prev) => prev + 1);
+            }
+            onRefreshRef.current?.();
           }
         } catch (e) {
           // ignore non-json messages
@@ -130,7 +153,12 @@ export default function Analytics({ data, theme }) {
   }, [data?.devices]);
 
   // ── Total Clicks for Percentages ──────────────────────────────────────────
-  const totalClicksCount = (data?.clicks || 0) + liveClickBump;
+  const serverClicks = data?.clicks || 0;
+  const totalClicksCount =
+    liveTotalClicks !== null
+      ? Math.max(serverClicks, liveTotalClicks)
+      : serverClicks + unSyncedBumps;
+  const pendingLiveClicks = Math.max(0, totalClicksCount - serverClicks);
   const totalDevicesCount = useMemo(() => {
     return deviceData.reduce((acc, curr) => acc + curr.value, 0) || 1;
   }, [deviceData]);
@@ -200,7 +228,7 @@ export default function Analytics({ data, theme }) {
           icon="🖱️"
           label="Total Clicks"
           value={totalClicksCount.toLocaleString()}
-          subtext={liveClickBump > 0 ? `+${liveClickBump} live` : null}
+          subtext={pendingLiveClicks > 0 ? `+${pendingLiveClicks} live` : null}
         />
         <StatBox
           icon="👥"

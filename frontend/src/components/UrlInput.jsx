@@ -14,15 +14,6 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showSmartRules, setShowSmartRules] = useState(false);
-  const [iosUrl, setIosUrl] = useState('');
-  const [androidUrl, setAndroidUrl] = useState('');
-  const [desktopUrl, setDesktopUrl] = useState('');
-  const [fallbackUrl, setFallbackUrl] = useState('');
-  const [splitVariants, setSplitVariants] = useState([
-    { url: '', weight: 50 },
-    { url: '', weight: 50 },
-  ]);
   const [errors, setErrors] = useState({}); // Stores validation errors per field
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aliasStatus, setAliasStatus] = useState(null); // null | 'checking' | 'available' | 'taken' | 'invalid'
@@ -37,7 +28,6 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
   useEffect(() => {
     if (!isSignedIn) {
       setShowAdvanced(false);
-      setShowSmartRules(false);
     }
   }, [isSignedIn]);
 
@@ -117,27 +107,6 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
       return;
     }
 
-    const routingRules = {};
-    if (isSignedIn) {
-      const hasDevice = iosUrl.trim() || androidUrl.trim() || desktopUrl.trim();
-      if (hasDevice) {
-        routingRules.device = {};
-        if (iosUrl.trim()) routingRules.device.ios = iosUrl.trim();
-        if (androidUrl.trim()) routingRules.device.android = androidUrl.trim();
-        if (desktopUrl.trim()) routingRules.device.desktop = desktopUrl.trim();
-      }
-      if (fallbackUrl.trim()) {
-        routingRules.fallbackUrl = fallbackUrl.trim();
-      }
-      const validSplits = splitVariants.filter((v) => v.url && v.url.trim());
-      if (validSplits.length > 0) {
-        routingRules.splitTest = validSplits.map((v) => ({
-          url: v.url.trim(),
-          weight: Number(v.weight) || 50,
-        }));
-      }
-    }
-
     const success = await onShorten(
       url.trim(),
       isSignedIn ? alias.trim() || null : null,
@@ -145,8 +114,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
       expiresInDays || null,
       isSignedIn ? maxClicks || null : null,
       title.trim() || null,
-      isSignedIn ? tags.trim() || null : null,
-      isSignedIn && Object.keys(routingRules).length > 0 ? routingRules : null
+      isSignedIn ? tags.trim() || null : null
     );
 
     if (success) {
@@ -158,15 +126,6 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
       setTitle('');
       setTags('');
       setShowAdvanced(false);
-      setIosUrl('');
-      setAndroidUrl('');
-      setDesktopUrl('');
-      setFallbackUrl('');
-      setSplitVariants([
-        { url: '', weight: 50 },
-        { url: '', weight: 50 },
-      ]);
-      setShowSmartRules(false);
     }
   };
 
@@ -486,179 +445,6 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
               />
             </div>
           </div>
-        </div>
-
-        {/* Smart Rules & Link Superpowers Accordion */}
-        <div className={styles.smartSection}>
-          <button
-            type="button"
-            className={styles.smartHeader}
-            onClick={() => setShowSmartRules(!showSmartRules)}
-          >
-            <div className={styles.smartHeaderLeft}>
-              <span>⚡ Smart Redirect Engine</span>
-              <span className={styles.smartBadge}>Dynamic & A/B</span>
-            </div>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              style={{
-                transform: showSmartRules ? 'rotate(180deg)' : 'rotate(0)',
-                transition: 'transform 0.2s',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {showSmartRules && (
-            <div className={styles.smartContent}>
-              {/* 1. Device Targeting */}
-              <div className={styles.smartGroup}>
-                <h4 className={styles.smartTitle}>📱 Device-Based Dynamic Routing</h4>
-                <p className={styles.smartDesc}>
-                  Automatically redirect visitors to native app stores or platform-tailored URLs.
-                </p>
-                <div className={styles.gridRow}>
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.label}>
-                      🍎 iOS Destination <span className={styles.opt}>(App Store)</span>
-                    </label>
-                    <div className={styles.inputWrapper}>
-                      <input
-                        type="url"
-                        className={styles.input}
-                        placeholder="https://apps.apple.com/app/id..."
-                        value={iosUrl}
-                        onChange={(e) => setIosUrl(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.label}>
-                      🤖 Android Destination <span className={styles.opt}>(Google Play)</span>
-                    </label>
-                    <div className={styles.inputWrapper}>
-                      <input
-                        type="url"
-                        className={styles.input}
-                        placeholder="https://play.google.com/store/apps/..."
-                        value={androidUrl}
-                        onChange={(e) => setAndroidUrl(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label}>
-                    💻 Desktop Destination <span className={styles.opt}>(Optional override)</span>
-                  </label>
-                  <div className={styles.inputWrapper}>
-                    <input
-                      type="url"
-                      className={styles.input}
-                      placeholder="https://mywebsite.com/desktop-landing"
-                      value={desktopUrl}
-                      onChange={(e) => setDesktopUrl(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Expiration Fallback URL */}
-              <div className={styles.smartGroup}>
-                <h4 className={styles.smartTitle}>🛡️ Expiration Fallback Destination</h4>
-                <p className={styles.smartDesc}>
-                  Prevent 404 dead-ends! Route users here if the link expires or reaches its click limit.
-                </p>
-                <div className={styles.inputWrapper}>
-                  <span className={styles.icon}>↪️</span>
-                  <input
-                    type="url"
-                    className={styles.input}
-                    placeholder="https://mywebsite.com/promo-ended"
-                    value={fallbackUrl}
-                    onChange={(e) => setFallbackUrl(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              {/* 3. A/B Split Testing */}
-              <div className={styles.smartGroup}>
-                <h4 className={styles.smartTitle}>⚖️ A/B Split Testing</h4>
-                <p className={styles.smartDesc}>
-                  Distribute traffic between multiple URLs with customizable traffic percentages.
-                </p>
-                {splitVariants.map((variant, idx) => (
-                  <div key={idx} className={styles.splitRow}>
-                    <div className={styles.inputWrapper} style={{ flex: 1 }}>
-                      <span className={styles.icon}>{idx === 0 ? '🅰️' : idx === 1 ? '🅱️' : '🔀'}</span>
-                      <input
-                        type="url"
-                        className={styles.input}
-                        placeholder={`Variant ${String.fromCharCode(65 + idx)} Destination URL`}
-                        value={variant.url}
-                        onChange={(e) => {
-                          const updated = [...splitVariants];
-                          updated[idx].url = e.target.value;
-                          setSplitVariants(updated);
-                        }}
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className={styles.inputWrapper} style={{ width: '90px' }}>
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        className={`${styles.input} ${styles.weightInput}`}
-                        placeholder="50%"
-                        value={variant.weight}
-                        onChange={(e) => {
-                          const updated = [...splitVariants];
-                          updated[idx].weight = e.target.value;
-                          setSplitVariants(updated);
-                        }}
-                        disabled={isLoading}
-                      />
-                      <span className={styles.opt}>%</span>
-                    </div>
-                    {splitVariants.length > 2 && (
-                      <button
-                        type="button"
-                        className={styles.removeVariantBtn}
-                        onClick={() => {
-                          setSplitVariants(splitVariants.filter((_, i) => i !== idx));
-                        }}
-                        title="Remove variant"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {splitVariants.length < 5 && (
-                  <button
-                    type="button"
-                    className={styles.addVariantBtn}
-                    onClick={() => {
-                      setSplitVariants([...splitVariants, { url: '', weight: 50 }]);
-                    }}
-                  >
-                    + Add Split Variant
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
         </>

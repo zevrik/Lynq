@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { SignInButton, UserProfile, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dark } from '@clerk/themes';
+import { BarChart3, Globe, QrCode, ShieldCheck } from 'lucide-react';
 import { shortenUrl as apiShorten, getUrlInfo, editUrl, deleteUrl, getUserLinks } from '../services/api.js';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import { useLynqAuth } from '../context/AuthContext.jsx';
@@ -69,7 +70,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     }
   }, []);
 
-  const handleShorten = useCallback(async (url, customAlias = null, password = null, expiresInDays = null, maxClicks = null, title = null, tags = null, routingRules = null) => {
+  const handleShorten = useCallback(async (url, customAlias = null, password = null, expiresInDays = null, maxClicks = null, title = null, tags = null) => {
     setIsLoading(true);
     setResult(null);
 
@@ -77,7 +78,6 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     const safePassword = isSignedIn ? password : null;
     const safeMaxClicks = isSignedIn ? maxClicks : null;
     const safeTags = isSignedIn ? tags : null;
-    const safeRoutingRules = isSignedIn ? routingRules : null;
 
     try {
       const data = await apiShorten(
@@ -87,8 +87,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
         expiresInDays,
         safeMaxClicks,
         title,
-        safeTags,
-        safeRoutingRules
+        safeTags
       );
       setResult(data);
 
@@ -173,7 +172,9 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     // Fetch live stats
     try {
       const data = await getUrlInfo(item.shortCode);
-      setResult((prev) => ({ ...prev, ...data, isExisting: false }));
+      setResult((prev) =>
+        prev?.shortCode === item.shortCode ? { ...prev, ...data, isExisting: false } : prev
+      );
     } catch (err) {
       console.error('Failed to fetch live stats', err);
     }
@@ -410,6 +411,16 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     };
   }, [activeTab]);
 
+  const refreshResultInfo = useCallback(async (shortCode) => {
+    if (!shortCode) return;
+    try {
+      const data = await getUrlInfo(shortCode);
+      setResult((prev) => (prev?.shortCode === shortCode ? { ...prev, ...data } : prev));
+    } catch (err) {
+      // Ignore polling errors quietly
+    }
+  }, []);
+
   // Poll for live analytics updates every 5 seconds while a result is shown
   useEffect(() => {
     if (!result?.shortCode) {
@@ -417,19 +428,15 @@ export default function Home({ theme, onToggleTheme, addToast }) {
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('lynq-active-code', { detail: result.shortCode }));
+    const activeShortCode = result.shortCode;
+    window.dispatchEvent(new CustomEvent('lynq-active-code', { detail: activeShortCode }));
 
-    const interval = setInterval(async () => {
-      try {
-        const data = await getUrlInfo(result.shortCode);
-        setResult((prev) => ({ ...prev, ...data }));
-      } catch (err) {
-        // Ignore polling errors quietly
-      }
+    const interval = setInterval(() => {
+      refreshResultInfo(activeShortCode);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [result?.shortCode]);
+  }, [result?.shortCode, refreshResultInfo]);
 
   const handleClearRecent = useCallback(async () => {
     const deletePromises = allLinks
@@ -532,6 +539,33 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                 <p className={styles.heroDesc}>
                   Free custom link shortener with real-time telemetry, geo-routing, and smart link targeting to optimize every redirect.
                 </p>
+              </div>
+
+              <div className={styles.heroHighlights}>
+                <div className={styles.heroHighlightItem}>
+                  <span className={styles.heroHighlightIcon} aria-hidden="true">
+                    <BarChart3 size={14} strokeWidth={2.2} />
+                  </span>
+                  <span className={styles.heroHighlightText}>Real-time click analytics</span>
+                </div>
+                <div className={styles.heroHighlightItem}>
+                  <span className={styles.heroHighlightIcon} aria-hidden="true">
+                    <Globe size={14} strokeWidth={2.2} />
+                  </span>
+                  <span className={styles.heroHighlightText}>3D geo &amp; device insights</span>
+                </div>
+                <div className={styles.heroHighlightItem}>
+                  <span className={styles.heroHighlightIcon} aria-hidden="true">
+                    <QrCode size={14} strokeWidth={2.2} />
+                  </span>
+                  <span className={styles.heroHighlightText}>Custom QR code studio</span>
+                </div>
+                <div className={styles.heroHighlightItem}>
+                  <span className={styles.heroHighlightIcon} aria-hidden="true">
+                    <ShieldCheck size={14} strokeWidth={2.2} />
+                  </span>
+                  <span className={styles.heroHighlightText}>AI phishing link shield</span>
+                </div>
               </div>
 
               <div className={styles.heroLeftBottom}>
@@ -691,7 +725,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                     <div className={styles.resultSection} id="result-section">
                       <div className={styles.resultMain}>
                         <ResultCard result={result} onCopy={handleCopy} />
-                        <Analytics data={result} theme={theme} />
+                        <Analytics data={result} theme={theme} onRefresh={() => refreshResultInfo(result.shortCode)} />
                       </div>
                       <QRCodeCard url={result.shortUrl} />
                     </div>
@@ -789,7 +823,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
               <div className={styles.resultSection} id="result-section">
                 <div className={styles.resultMain}>
                   <ResultCard result={result} onCopy={handleCopy} />
-                  <Analytics data={result} theme={theme} />
+                  <Analytics data={result} theme={theme} onRefresh={() => refreshResultInfo(result.shortCode)} />
                 </div>
                 <QRCodeCard url={result.shortUrl} />
               </div>
