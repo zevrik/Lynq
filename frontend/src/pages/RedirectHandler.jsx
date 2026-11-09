@@ -17,6 +17,9 @@ export default function RedirectHandler() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const executedRef = useRef(false);
+  const initialReferrerRef = useRef(
+    typeof document !== 'undefined' ? document.referrer || '' : '',
+  );
 
   useEffect(() => {
     if (!shortCode) return;
@@ -34,7 +37,17 @@ export default function RedirectHandler() {
       .then(({ result }) => {
         setTimeout(() => activeResolutions.delete(shortCode), 4000);
         if (result.requiresPassword) {
-          navigate(`/unlock/${shortCode}`);
+          const referrer = initialReferrerRef.current;
+          try {
+            sessionStorage.setItem(
+              `lynq_unlock_ref_${shortCode}`,
+              JSON.stringify({ referrer, ts: Date.now() }),
+            );
+          } catch {}
+          navigate(`/unlock/${shortCode}`, {
+            replace: true,
+            state: { referrer },
+          });
         } else {
           // Hard redirect to the actual destination
           window.location.replace(result.originalUrl);

@@ -103,8 +103,8 @@ export const getUrlInfo = async (shortCode) => {
  * @param {string} password
  * @returns {Promise<object>}
  */
-export const verifyPassword = async (shortCode, password) => {
-  const { data } = await api.post(`/verify/${shortCode}`, { password });
+export const verifyPassword = async (shortCode, password, referrer = "") => {
+  const { data } = await api.post(`/verify/${shortCode}`, { password, referrer });
   return data;
 };
 

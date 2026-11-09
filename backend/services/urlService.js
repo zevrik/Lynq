@@ -2,8 +2,10 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import pool from "../config/db.js";
 import env from "../config/env.js";
+import eventBus from "../config/eventBus.js";
 import { generateShortCode } from "../utils/codeGenerator.js";
 import { isValidUrl, normaliseUrl } from "../utils/validator.js";
+import { computeVisitorHash, parseClickTelemetry } from "../utils/telemetry.js";
 import redisClient from "../config/redis.js";
 
 export const shortenUrl = async (
@@ -213,11 +215,7 @@ export const shortenUrl = async (
 // Helper to queue click analytics with rapid duplicate-click suppression
 const queueAnalyticsClick = async (shortCode, ip, userAgent, referrer, extraData = {}) => {
   try {
-    const cleanIp = (ip || "").replace(/^::ffff:/, "").split(",")[0].trim();
-    const visitorHash = crypto
-      .createHash("md5")
-      .update(`${cleanIp}-${userAgent || ""}`)
-      .digest("hex");
+    const visitorHash = computeVisitorHash(ip, userAgent);
     const dedupKey = `click_dedup:${shortCode}:${visitorHash}`;
 
     let shouldTrack = true;
@@ -391,6 +389,7 @@ export const verifyUrlPassword = async (
   password,
   ip = "",
   userAgent = "",
+  referrer = "",
 ) => {
   const { rows } = await pool.query(
     "SELECT * FROM urls WHERE short_code = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
@@ -399,6 +398,7 @@ export const verifyUrlPassword = async (
 
   if (rows.length === 0) {
     await pool.query("DELETE FROM urls WHERE short_code = $1", [shortCode]);
+    await redisClient.del(`url:${shortCode}`).catch(() => {});
     const err = new Error("Short URL not found or has expired.");
     err.status = 404;
     throw err;
@@ -417,46 +417,105 @@ export const verifyUrlPassword = async (
     throw err;
   }
 
-  await pool.query(
-    "UPDATE urls SET clicks = clicks + 1, last_visited = CURRENT_TIMESTAMP WHERE id = $1",
-    [data.id],
-  );
+  const clickedAt = new Date();
+  const telemetry = parseClickTelemetry({ ip, userAgent, referrer });
+  const {
+    visitorHash,
+    country,
+    region,
+    city,
+    latitude,
+    longitude,
+    deviceType,
+    browser,
+    os,
+    referrer: parsedReferrer,
+  } = telemetry;
 
-  const visitorString = `${ip}-${userAgent}`;
-  const visitorHash = crypto
-    .createHash("md5")
-    .update(visitorString)
-    .digest("hex");
+  let totalClicks = (parseInt(data.clicks, 10) || 0) + 1;
+  const client = await pool.connect();
 
-  await pool.query(
-    `
-    INSERT INTO click_history (short_code, visitor_hash, user_agent)
-    VALUES ($1, $2, $3)
-  `,
-    [shortCode, visitorHash, userAgent],
-  );
+  try {
+    await client.query("BEGIN");
 
-  const { rowCount } = await pool.query(
-    `
-    INSERT INTO unique_visitors (short_code, visitor_hash) 
-    VALUES ($1, $2) ON CONFLICT (short_code, visitor_hash) DO NOTHING
-  `,
-    [shortCode, visitorHash],
-  );
+    const { rows: updatedRows } = await client.query(
+      "UPDATE urls SET clicks = clicks + 1, last_visited = GREATEST(COALESCE(last_visited, $1::timestamptz), $1::timestamptz) WHERE id = $2 RETURNING clicks",
+      [clickedAt, data.id],
+    );
+    if (updatedRows[0]) {
+      totalClicks = parseInt(updatedRows[0].clicks, 10);
+    }
 
-  if (data.max_clicks) {
-    if (rowCount > 0) {
-      const { rows: countRows } = await pool.query(
+    await client.query(
+      `
+      INSERT INTO click_history (
+        short_code, visitor_hash, user_agent, clicked_at,
+        country, region, city, latitude, longitude,
+        device_type, browser, os, referrer
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `,
+      [
+        shortCode,
+        visitorHash,
+        userAgent,
+        clickedAt,
+        country,
+        region,
+        city,
+        latitude,
+        longitude,
+        deviceType,
+        browser,
+        os,
+        parsedReferrer,
+      ],
+    );
+
+    const { rowCount } = await client.query(
+      `
+      INSERT INTO unique_visitors (short_code, visitor_hash) 
+      VALUES ($1, $2) ON CONFLICT (short_code, visitor_hash) DO NOTHING
+    `,
+      [shortCode, visitorHash],
+    );
+
+    if (data.max_clicks && rowCount > 0) {
+      const { rows: countRows } = await client.query(
         "SELECT COUNT(*) as count FROM unique_visitors WHERE short_code = $1",
         [shortCode],
       );
       const uniqueCount = parseInt(countRows[0].count, 10);
 
       if (uniqueCount >= data.max_clicks) {
-        await pool.query("DELETE FROM urls WHERE id = $1", [data.id]);
+        await client.query("DELETE FROM urls WHERE id = $1", [data.id]);
+        await redisClient.del(`url:${shortCode}`).catch(() => {});
       }
     }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
+
+  // Broadcast committed telemetry immediately via SSE
+  eventBus.emit(`click:${shortCode}`, {
+    shortCode,
+    country: country || "Unknown",
+    region: region || "Unknown",
+    city: city || "Unknown",
+    latitude,
+    longitude,
+    device: deviceType,
+    browser,
+    os,
+    referrer: parsedReferrer,
+    timestamp: clickedAt.toISOString(),
+    totalClicks,
+  });
 
   return data.original_url;
 };

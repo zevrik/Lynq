@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { verifyPassword } from '../services/api.js';
 import AppHeader from '../components/AppHeader.jsx';
 import AppFooter from '../components/AppFooter.jsx';
@@ -7,9 +7,32 @@ import styles from './Unlock.module.css';
 
 export default function Unlock({ theme, onToggleTheme, addToast }) {
   const { shortCode } = useParams();
-  const navigate = useNavigate();
+  const location = useLocation();
   const [password, setPassword] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+
+  const getPreservedReferrer = () => {
+    if (typeof location.state?.referrer === 'string') {
+      return location.state.referrer;
+    }
+    try {
+      const raw = sessionStorage.getItem(`lynq_unlock_ref_${shortCode}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Date.now() - parsed.ts < 10 * 60 * 1000) {
+          return parsed.referrer || '';
+        }
+      }
+    } catch {}
+    if (
+      typeof document !== 'undefined' &&
+      document.referrer &&
+      !document.referrer.includes(`/unlock/${shortCode}`)
+    ) {
+      return document.referrer;
+    }
+    return '';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +40,11 @@ export default function Unlock({ theme, onToggleTheme, addToast }) {
 
     setIsVerifying(true);
     try {
-      const data = await verifyPassword(shortCode, password);
+      const referrer = getPreservedReferrer();
+      const data = await verifyPassword(shortCode, password, referrer);
+      try {
+        sessionStorage.removeItem(`lynq_unlock_ref_${shortCode}`);
+      } catch {}
       addToast('Password accepted! Redirecting...', 'success', 2000);
       window.location.href = data.originalUrl;
     } catch (err) {

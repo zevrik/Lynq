@@ -12,6 +12,7 @@ import {
   checkAliasAvailability,
 } from "../services/urlService.js";
 import { checkSecurity } from "../services/securityService.js";
+import { getClientIp } from "../utils/telemetry.js";
 
 /**
  * POST /api/shorten
@@ -132,7 +133,7 @@ export const handleDeleteUrl = async (req, res, next) => {
 export const handleRedirect = async (req, res, next) => {
   try {
     const { shortCode } = req.params;
-    const ip = req.ip || req.connection?.remoteAddress || "";
+    const ip = getClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
     const referrer = req.headers["referer"] || req.headers["referrer"] || "";
     const result = await resolveUrl(shortCode, ip, userAgent, referrer);
@@ -155,7 +156,7 @@ export const handleRedirect = async (req, res, next) => {
 export const handleResolveAndTrack = async (req, res, next) => {
   try {
     const { shortCode } = req.params;
-    const ip = req.ip || req.connection?.remoteAddress || "";
+    const ip = getClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
     const referrer =
       req.headers["referer"] ||
@@ -177,7 +178,7 @@ export const handleResolveAndTrack = async (req, res, next) => {
 export const handleVerifyPassword = async (req, res, next) => {
   try {
     const { shortCode } = req.params;
-    const { password } = req.body;
+    const { password, referrer: bodyReferrer } = req.body;
 
     if (!password) {
       return res
@@ -185,13 +186,24 @@ export const handleVerifyPassword = async (req, res, next) => {
         .json({ success: false, error: "Password is required." });
     }
 
-    const ip = req.ip || req.connection?.remoteAddress || "";
+    const ip = getClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
+    const rawHeaderReferrer =
+      req.headers["referer"] || req.headers["referrer"] || "";
+    const safeHeaderReferrer = rawHeaderReferrer.includes(`/unlock/${shortCode}`)
+      ? ""
+      : rawHeaderReferrer;
+    const referrer =
+      typeof bodyReferrer === "string" && bodyReferrer.trim()
+        ? bodyReferrer
+        : safeHeaderReferrer;
+
     const originalUrl = await verifyUrlPassword(
       shortCode,
       password,
       ip,
       userAgent,
+      referrer,
     );
     return res.status(200).json({ success: true, originalUrl });
   } catch (err) {
