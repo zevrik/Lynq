@@ -541,7 +541,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                 </h1>
 
                 <p className={styles.heroDesc}>
-                  Free custom link shortener with real-time telemetry, geo-routing, and smart link targeting to optimize every redirect.
+                  Free custom link shortener with real-time click telemetry, interactive 3D geo analytics, custom QR codes, and AI phishing protection.
                 </p>
               </div>
 
@@ -613,7 +613,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                     <span className={styles.heroCheckIcon}>✓</span> No credit card required
                   </div>
                   <div className={styles.heroTrustItem}>
-                    <span className={styles.heroCheckIcon}>✓</span> &lt;15ms redirect latency
+                    <span className={styles.heroCheckIcon}>✓</span> L1 RAM + Redis caching
                   </div>
                 </div>
               </div>
@@ -702,7 +702,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                       Shorten URLs in <span className={styles.headingGradient}>a few simple steps</span>
                     </h2>
                     <p className={styles.dashboardSubtext}>
-                      Create fast, trackable short links with real-time telemetry and custom options.
+                      Create custom aliases, password-protected links, bulk CSV batches, and live 3D telemetry with AI.
                     </p>
                   </div>
 

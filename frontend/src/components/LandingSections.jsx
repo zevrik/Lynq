@@ -6,10 +6,10 @@ import styles from './LandingSections.module.css';
 
 export default function LandingSections({ hasClerk, onScrollToInput }) {
   const [platformStats, setPlatformStats] = useState({
-    totalLinks: 26,
-    totalRedirects: 146,
-    countriesCount: 3,
-    latencyMs: 12,
+    totalLinks: null,
+    totalRedirects: null,
+    countriesCount: null,
+    latencyMs: null,
     uptime: '99.99%',
   });
 
@@ -30,7 +30,7 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
   }, []);
 
   const formatStat = (val, hasPlus = true) => {
-    if (val === null || val === undefined) return '0';
+    if (val === null || val === undefined) return '—';
     const num = Number(val);
     if (isNaN(num)) return val;
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M+`;
@@ -44,50 +44,50 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
         <div className={styles.trustItem}>
           <span className={styles.trustIcon}>⚡</span>
           <div>
-            <div className={styles.trustTitle}>&lt;15ms Latency</div>
-            <div className={styles.trustSub}>Redis in-memory caching</div>
+            <div className={styles.trustTitle}>L1 + Redis Caching</div>
+            <div className={styles.trustSub}>Sub-15ms redirects &amp; stampede shield</div>
           </div>
         </div>
         <div className={styles.trustItem}>
           <span className={styles.trustIcon}>🛡️</span>
           <div>
             <div className={styles.trustTitle}>AI Phishing Defense</div>
-            <div className={styles.trustSub}>Powered by Google Gemini</div>
+            <div className={styles.trustSub}>Gemini 2.5 Flash + TLD &amp; SSRF guards</div>
           </div>
         </div>
         <div className={styles.trustItem}>
           <span className={styles.trustIcon}>📡</span>
           <div>
-            <div className={styles.trustTitle}>Live Pulse Stream</div>
-            <div className={styles.trustSub}>Server-Sent Events (SSE)</div>
+            <div className={styles.trustTitle}>Live SSE Pulse</div>
+            <div className={styles.trustSub}>Real-time click stream via EventSource</div>
           </div>
         </div>
         <div className={styles.trustItem}>
-          <span className={styles.trustIcon}>🌍</span>
+          <span className={styles.trustIcon}>🌐</span>
           <div>
-            <div className={styles.trustTitle}>180+ Countries</div>
-            <div className={styles.trustSub}>Offline GeoIP & device telemetry</div>
+            <div className={styles.trustTitle}>3D GeoIP Globe</div>
+            <div className={styles.trustSub}>Offline country, state, city &amp; OS metrics</div>
           </div>
         </div>
       </section>
 
-      {/* ── 3. Bento Features Grid ("Everything you need") ──── */}
+      {/* ── 2. Bento Features Grid ("Everything you need") ──── */}
       <section id="features" className={styles.section}>
         <div className={styles.sectionHeader}>
           <span className={styles.eyebrow}>Platform Superpowers</span>
-          <h2 className={styles.sectionTitle}>Everything you need to manage & grow links</h2>
+          <h2 className={styles.sectionTitle}>Everything you need to manage &amp; grow links</h2>
           <p className={styles.sectionSubtitle}>
-            Engineered for creators, developers, and hyper-growth teams. Built on Postgres, Redis, and AI.
+            Engineered for creators, developers, and teams. Built on PostgreSQL, Redis, Clerk, Three.js, and Gemini AI.
           </p>
         </div>
 
         <div className={styles.bentoGrid}>
-          {/* Card 1: Real-time Analytics */}
+          {/* Row 1 Left (2 cols): 3D Globe & Live Telemetry */}
           <div className={`${styles.bentoCard} ${styles.bentoCardWide}`}>
             <div className={styles.bentoVisual}>
               <div className={styles.mockChart}>
                 <div className={styles.mockChartHeader}>
-                  <span>Click Activity (Last 24h)</span>
+                  <span>Click Activity &amp; 3D WebGL Globe Telemetry</span>
                   <span className={styles.liveTag}>● Live Pulse</span>
                 </div>
                 <div className={styles.mockBars}>
@@ -104,34 +104,34 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
             </div>
             <div className={styles.bentoContent}>
               <div className={styles.bentoIcon}>📊</div>
-              <h3 className={styles.bentoTitle}>Deep Telemetry & Real-Time Pulse</h3>
+              <h3 className={styles.bentoTitle}>3D Spherical Globe &amp; Live SSE Telemetry</h3>
               <p className={styles.bentoDesc}>
-                Track visitor countries, cities, device types, browsers, operating systems, and referrers. Watch clicks stream live via Server-Sent Events.
+                Visualize country &amp; state visit density on an interactive Three.js 3D hex-polygon globe on <code>/stats/:code</code>, alongside devices, browsers, OS, referrers, live SSE pulses, and 1-click CSV export.
               </p>
             </div>
           </div>
 
-          {/* Card 2: AI Anti-Phishing Security */}
+          {/* Row 1 Right (1 col): AI Anti-Phishing, Bcrypt Password & Auto-Destruct */}
           <div className={styles.bentoCard}>
             <div className={styles.bentoVisual}>
               <div className={styles.mockSecurityBadge}>
                 <span className={styles.shieldIcon} aria-hidden="true">🛡️</span>
                 <div>
                   <div className={styles.securityTitle}>Verified Safe</div>
-                  <div className={styles.securitySub}>Gemini AI Phishing Guard</div>
+                  <div className={styles.securitySub}>Gemini Guard · Bcrypt · SSRF Block</div>
                 </div>
               </div>
             </div>
             <div className={styles.bentoContent}>
               <div className={styles.bentoIcon}>🔒</div>
-              <h3 className={styles.bentoTitle}>AI Security & Phishing Shield</h3>
+              <h3 className={styles.bentoTitle}>Phishing Shield, Lock &amp; Self-Destruct</h3>
               <p className={styles.bentoDesc}>
-                Block malicious TLDs (.zip, .top), spoofed brand domains (paypa1, g00gle), and scan suspected credential harvesting lures automatically.
+                Blocks risky TLDs (<code>.zip</code>, <code>.top</code>), typosquatting (<code>paypa1</code>), shortener chains, and private-IP SSRF. Protects private links via Bcrypt (<code>/unlock/:code</code>) and expiry by days or max clicks.
               </p>
             </div>
           </div>
 
-          {/* Card 3: Custom QR Code Studio */}
+          {/* Row 2 Left (1 col): Custom QR Code Studio */}
           <div className={styles.bentoCard}>
             <div className={styles.bentoVisual}>
               <div className={styles.mockQrMini}>
@@ -145,70 +145,107 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
             </div>
             <div className={styles.bentoContent}>
               <div className={styles.bentoIcon}>📱</div>
-              <h3 className={styles.bentoTitle}>High-Res QR Code Studio</h3>
+              <h3 className={styles.bentoTitle}>Custom QR Code Studio</h3>
               <p className={styles.bentoDesc}>
-                Generate crisp, scannable QR codes for every link. Customize dark/light contrast, add center logos, and download print-ready images instantly.
+                Customize foreground and background colors via an HSV picker with EyeDropper, toggle transparency, switch Square or Round dots, embed a center logo, and export 1024px PNGs.
               </p>
             </div>
           </div>
 
-          {/* Card 4: AI Link Summaries */}
+          {/* Row 2 Right (2 cols): AI Auto-Fill, Summaries & Health Monitor */}
           <div className={`${styles.bentoCard} ${styles.bentoCardWide}`}>
             <div className={styles.bentoVisual}>
               <div className={styles.mockAiSummary}>
                 <div className={styles.mockAiHeader}>
-                  <span>✨ AI Destination Overview</span>
-                  <span className={styles.mockAiBadge}>Cached &lt;2ms</span>
+                  <span>✨ AI Destination Preview &amp; Health Monitor</span>
+                  <span className={styles.mockAiBadge}>Redis Cached · HEAD Check</span>
                 </div>
                 <p className={styles.mockAiText}>
-                  &ldquo;This page leads to the official documentation for Node.js, providing comprehensive guides on server-side JavaScript APIs and architecture.&rdquo;
+                  &ldquo;Auto-fills titles, tags, and available custom aliases with Gemini 2.5 Flash, while <code>/preview/:code</code> verifies live destination uptime.&rdquo;
                 </p>
               </div>
             </div>
             <div className={styles.bentoContent}>
               <div className={styles.bentoIcon}>🤖</div>
-              <h3 className={styles.bentoTitle}>AI Link Previews & TL;DR</h3>
+              <h3 className={styles.bentoTitle}>AI Auto-Fill, Link Previews &amp; Health Status</h3>
               <p className={styles.bentoDesc}>
-                Visitors on <code>/preview/:code</code> receive a 2-sentence summary generated by Gemini and cached in Redis, guaranteeing safe, transparent clicks.
+                Generate SEO titles, tags, and available custom alias alternatives automatically, inspect 2-sentence AI TL;DR summaries on <code>/preview/:code</code> &amp; <code>/stats/:code</code>, and monitor live destination <code>HEAD</code> latency.
+              </p>
+            </div>
+          </div>
+
+          {/* Row 3 Left (2 cols): Bulk CSV & Cmd+K N-Gram Search */}
+          <div className={`${styles.bentoCard} ${styles.bentoCardWide}`}>
+            <div className={styles.bentoVisual}>
+              <div className={styles.mockPillStack}>
+                <span className={`${styles.mockFeaturePill} ${styles.mockFeaturePillAccent}`}>⌘K Command Palette</span>
+                <span className={styles.mockFeaturePill}>100-Row CSV Batch</span>
+                <span className={styles.mockFeaturePill}>N-Gram Inverted Index</span>
+                <span className={styles.mockFeaturePill}>Single-Query UNNEST</span>
+              </div>
+            </div>
+            <div className={styles.bentoContent}>
+              <div className={styles.bentoIcon}>📁</div>
+              <h3 className={styles.bentoTitle}>Bulk CSV Engine &amp; Instant ⌘K Search</h3>
+              <p className={styles.bentoDesc}>
+                Drag and drop CSV files up to 100 links processed in one PostgreSQL <code>UNNEST</code> batch, and filter every link by alias, title, tags, or URL via the global <code>Cmd+K</code> palette backed by an n-gram inverted index.
+              </p>
+            </div>
+          </div>
+
+          {/* Row 3 Right (1 col): Editable Destinations, Dedup & Multi-Tier Engine */}
+          <div className={styles.bentoCard}>
+            <div className={styles.bentoVisual}>
+              <div className={styles.mockPillStack}>
+                <span className={`${styles.mockFeaturePill} ${styles.mockFeaturePillAccent}`}>Auto Guest Sync</span>
+                <span className={styles.mockFeaturePill}>Edit Target URL</span>
+                <span className={styles.mockFeaturePill}>Dark / Light UI</span>
+              </div>
+            </div>
+            <div className={styles.bentoContent}>
+              <div className={styles.bentoIcon}>✏️</div>
+              <h3 className={styles.bentoTitle}>Editable Targets &amp; Smart Sync</h3>
+              <p className={styles.bentoDesc}>
+                Update destinations anytime, deduplicate identical active links, toggle dark/light themes with live DB &amp; Redis status, and automatically shift guest links into your account on sign-in.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 4. Live Showcase ("See Lynq in Action") ──────────── */}
+      {/* ── 3. Live Showcase ("See Lynq in Action") ──────────── */}
       <section id="showcase" className={styles.section}>
         <div className={styles.showcaseGrid}>
           <div className={styles.showcaseLeft}>
             <span className={styles.eyebrow}>Real-Time Intelligence</span>
             <h2 className={styles.sectionTitle}>See Lynq in action with live streaming analytics</h2>
             <p className={styles.sectionSubtitle} style={{ textAlign: 'left' }}>
-              Unlike traditional shorteners that delay analytics by hours, Lynq updates your metrics in milliseconds with asynchronous Redis buffering.
+              Incoming clicks read from L1 RAM &amp; Redis Hashes and stream live while a 5-second worker commits batches via single-pass PostgreSQL queries.
             </p>
 
             <ul className={styles.checkList}>
               <li>
                 <span className={styles.checkIcon}>✓</span>
                 <div>
-                  <strong>Live SSE Click Pulse:</strong> Stream real-time click events straight to your browser without polling or reloading.
+                  <strong>Live SSE Click Pulse &amp; 3D Globe:</strong> Stream real-time clicks straight to your browser and explore traffic on an interactive 3D hex-polygon globe.
                 </div>
               </li>
               <li>
                 <span className={styles.checkIcon}>✓</span>
                 <div>
-                  <strong>Offline GeoIP Accuracy:</strong> Pinpoint countries and cities with sub-millisecond local database lookups.
+                  <strong>Offline GeoIP &amp; Private Link Tracking:</strong> Capture country, region, city, browser, OS, and preserved referrer even through password-protected <code>/unlock/:code</code> pages.
                 </div>
               </li>
               <li>
                 <span className={styles.checkIcon}>✓</span>
                 <div>
-                  <strong>1-Click CSV Telemetry:</strong> Export full historical click logs ready for spreadsheet and BI dashboard analysis.
+                  <strong>1-Click CSV &amp; Destination Uptime:</strong> Export full historical telemetry to CSV and inspect live target server health checks anytime.
                 </div>
               </li>
               <li>
                 <span className={styles.checkIcon}>✓</span>
                 <div>
-                  <strong>Frictionless Guest-to-Cloud Sync:</strong> Shorten anonymously now; claim all your links to your permanent account later with 1 click.
+                  <strong>Automatic Guest-to-Cloud Sync:</strong> Shorten links right away as a guest; signing in automatically transfers your links to your cloud dashboard.
                 </div>
               </li>
             </ul>
@@ -225,9 +262,9 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
               <div className={styles.dashMockHeader}>
                 <div className={styles.dashMockTitle}>
                   <span className={styles.dashDot} />
-                  <span>lynq.app/phase7-demo</span>
+                  <span>lynq.app/launch-2026</span>
                 </div>
-                <span className={styles.dashStatus}>Active (100% Health)</span>
+                <span className={styles.dashStatus}>Active (200 OK · 100%)</span>
               </div>
 
               <div className={styles.dashMetricsGrid}>
@@ -289,6 +326,61 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
         </div>
       </section>
 
+      {/* ── 4. Guest vs Cloud Account Access Tiers ─────────── */}
+      <section id="tiers" className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <span className={styles.eyebrow}>100% Free Plans</span>
+          <h2 className={styles.sectionTitle}>Start instantly as a guest or unlock everything free</h2>
+          <p className={styles.sectionSubtitle}>
+            No paywalls or subscriptions. Sign in with Clerk anytime to lift per-device caps and automatically import your guest links.
+          </p>
+        </div>
+
+        <div className={styles.tiersGrid}>
+          <div className={styles.tierCard}>
+            <div className={styles.tierTopRow}>
+              <h3 className={styles.tierName}>Guest Mode</h3>
+              <span className={styles.tierBadge}>Per Device · No Login</span>
+            </div>
+            <div className={styles.tierPriceRow}>
+              <span className={styles.tierPrice}>$0</span>
+              <span className={styles.tierPriceSub}>Instant access</span>
+            </div>
+            <p className={styles.tierDesc}>
+              Shorten links immediately from your browser without creating an account.
+            </p>
+            <ul className={styles.tierList}>
+              <li><span className={styles.tierListIcon}>✓</span><strong>3/min · 5/hr · 10/day</strong> per-device rate limits</li>
+              <li><span className={styles.tierListIcon}>✓</span>Up to <strong>10 active saved links</strong> &amp; <strong>7-day max expiry</strong></li>
+              <li><span className={styles.tierListIcon}>✓</span>Custom QR Studio (HSV colors, shapes, logo, PNG)</li>
+              <li><span className={styles.tierListIcon}>✓</span>Live SSE &amp; 3D Globe telemetry + CSV export</li>
+              <li><span className={styles.tierListIcon}>✓</span>Auto-migrates all links when you sign in later</li>
+            </ul>
+          </div>
+
+          <div className={`${styles.tierCard} ${styles.tierCardFeatured}`}>
+            <div className={styles.tierTopRow}>
+              <h3 className={styles.tierName}>Cloud Account</h3>
+              <span className={`${styles.tierBadge} ${styles.tierBadgeFeatured}`}>Per Login · Full Suite</span>
+            </div>
+            <div className={styles.tierPriceRow}>
+              <span className={styles.tierPrice}>$0</span>
+              <span className={styles.tierPriceSub}>Free forever via Clerk</span>
+            </div>
+            <p className={styles.tierDesc}>
+              Permanent cross-device cloud portfolio with full security, AI, and bulk tools.
+            </p>
+            <ul className={styles.tierList}>
+              <li><span className={styles.tierListIcon}>✓</span><strong>20/min · 100/hr · 500/day</strong> per-account rate limits</li>
+              <li><span className={styles.tierListIcon}>✓</span><strong>Unlimited active links</strong> &amp; up to <strong>365-day expiry</strong></li>
+              <li><span className={styles.tierListIcon}>✓</span>Custom aliases, Bcrypt passwords, tags &amp; max-click limits</li>
+              <li><span className={styles.tierListIcon}>✓</span>Bulk CSV upload (up to 100 links/batch) &amp; Gemini AI tools</li>
+              <li><span className={styles.tierListIcon}>✓</span>Global <code>Cmd+K</code> Command Palette &amp; indexed link search</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* ── 5. Trusted at Scale (Actual Live Platform Metrics) ────────────── */}
       <section className={styles.statsBanner}>
         <div className={styles.statBannerItem}>
@@ -300,12 +392,14 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
           <div className={styles.statBannerLabel}>Total Redirects</div>
         </div>
         <div className={styles.statBannerItem}>
-          <div className={styles.statBannerVal}>{platformStats.uptime || '99.99%'}</div>
-          <div className={styles.statBannerLabel}>Uptime SLA</div>
+          <div className={styles.statBannerVal}>{formatStat(platformStats.countriesCount)}</div>
+          <div className={styles.statBannerLabel}>Countries Reached</div>
         </div>
         <div className={styles.statBannerItem}>
-          <div className={styles.statBannerVal}>&lt;{Math.max(15, platformStats.latencyMs || 12)}ms</div>
-          <div className={styles.statBannerLabel}>Global Latency</div>
+          <div className={styles.statBannerVal}>
+            {platformStats.latencyMs !== null ? `${platformStats.latencyMs}ms` : '—'}
+          </div>
+          <div className={styles.statBannerLabel}>Redis Cache Latency</div>
         </div>
       </section>
 
@@ -314,7 +408,7 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
         <div className={styles.ctaBannerInner}>
           <h2 className={styles.ctaTitle}>Ready to supercharge your links?</h2>
           <p className={styles.ctaDesc}>
-            Join thousands of creators and growth teams using Lynq. Start shortening in 1 second.
+            Create smart, trackable short URLs with real-time 3D telemetry and AI protection in seconds.
           </p>
 
           <div className={styles.ctaButtons}>
@@ -336,9 +430,9 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
           </div>
 
           <div className={styles.ctaTrustPills}>
-            <span>✓ No credit card required</span>
-            <span>✓ Instant setup</span>
-            <span>✓ Redis & Postgres backed</span>
+            <span>✓ 100% Free Forever</span>
+            <span>✓ Auto-syncs guest links</span>
+            <span>✓ L1 + Redis + PostgreSQL</span>
           </div>
         </div>
       </section>

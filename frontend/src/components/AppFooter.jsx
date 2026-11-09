@@ -10,6 +10,9 @@ import styles from './AppFooter.module.css';
 export default function AppFooter() {
   const navigate = useNavigate();
 
+  const apiBase = import.meta.env.VITE_API_URL || '/api';
+  const healthUrl = `${apiBase.replace(/\/+$/, '')}/health`;
+
   const handleLogoClick = () => {
     navigate('/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -51,18 +54,18 @@ export default function AppFooter() {
         <div className={styles.footerCol}>
           <h4>Product</h4>
           <a href="/#shorten-input-container">Link Shortener</a>
-          <a href="/#recent-links-container">Deep Telemetry</a>
+          <a href="/#features">Features &amp; 3D Telemetry</a>
+          <a href="/#showcase">Live Showcase</a>
+          <a href="/#tiers">Free Tiers &amp; Limits</a>
           <a href="/#shorten-input-container">QR Code Studio</a>
-          <a href="/#shorten-input-container">AI Security Scanner</a>
-          <a href="/#recent-links-container">Live Showcase</a>
         </div>
 
         {/* Platform Column */}
         <div className={styles.footerCol}>
           <h4>Platform</h4>
-          <a href="/api/health" target="_blank" rel="noreferrer">PostgreSQL Database</a>
-          <a href="/api/health" target="_blank" rel="noreferrer">Redis In-Memory</a>
-          <a href="/api/health" target="_blank" rel="noreferrer">Server-Sent Events</a>
+          <a href={healthUrl} target="_blank" rel="noreferrer">PostgreSQL Database</a>
+          <a href={healthUrl} target="_blank" rel="noreferrer">Redis In-Memory</a>
+          <a href="/#showcase">Server-Sent Events</a>
           <a href="https://clerk.com" target="_blank" rel="noreferrer">Clerk Authentication</a>
           <a href="https://ai.google.dev" target="_blank" rel="noreferrer">Google Gemini AI</a>
         </div>
@@ -70,9 +73,9 @@ export default function AppFooter() {
         {/* Resources Column */}
         <div className={styles.footerCol}>
           <h4>Resources</h4>
-          <a href="/api/health" target="_blank" rel="noreferrer">API Health Status</a>
+          <a href={healthUrl} target="_blank" rel="noreferrer">API Health Status</a>
           <a href="https://github.com/zevrik/Lynq" target="_blank" rel="noreferrer">GitHub Repository</a>
-          <a href="/#recent-links-container">Live Pulse Stream</a>
+          <a href="/#showcase">Live Pulse Stream</a>
           <a href="https://github.com/zevrik/Lynq/blob/main/README.md" target="_blank" rel="noreferrer">Documentation</a>
         </div>
       </div>
