@@ -18,6 +18,10 @@
 <br />
 
 > **Full-stack URL shortener and real-time analytics platform built with React 18, Express, multi-tier L1 + Redis caching, Neon PostgreSQL, Clerk auth, Three.js WebGL globes, and Google Gemini AI.** Engineered for instant guest onboarding and full cloud portfolio management—free with zero paywalls.
+>
+> **Verified Live Load-Test Conclusion ([Full Benchmark Report](#load-testing--production-benchmark-analysis)):** Passed **`11 / 11` production Grafana k6 suites (`196,606` live HTTP requests)** against `lynq.nisargvekariya.me` with **zero server crashes**:
+> - **Peak Throughput:** Up to **`189.6` req/s (`~11,376` req/min)** in full-stack traffic (`120` VUs, **`0.00%` backend API errors**), **`146.5` redirects/s**, **`60.5` analytics reads/s**, and **`48.7` DB writes/s**.
+> - **Concurrent Active Users:** Runs optimally at **`15–50` concurrent tight-loop VUs (`~54–110` req/s, `107–168ms` avg latency)** and scales cleanly up to **`300` concurrent active VUs** under instant viral spikes (`0.00%` dropped requests) and 70/30 read-write stress (`134.2` req/s, `99.96%` checks passed). *(Because k6 VUs loop every `50–500ms` with minimal pause, `50–300` concurrent VUs corresponds to substantially higher everyday human browsing concurrency.)*
 
 ---
 
@@ -327,6 +331,15 @@ Open **`http://localhost:5173`** in your browser!
 ## Load Testing & Production Benchmark Analysis
 
 Lynq is load-tested with **Grafana k6 (`v2.1.0`)** (`HTTP/2` protocol engine + native `k6/browser` Chromium automation) via a custom runner (`load-tests/run-k6.mjs`) designed specifically for split **Vercel SPA (`https://lynq.nisargvekariya.me`) + Cloudflare → Render API (`https://api.lynq.nisargvekariya.me`)** deployments.
+
+### Executive Conclusion & Verified Capacity Summary
+
+- **Verdict (`196,606` Live Requests Across `11 / 11` Suites):** Production handles sustained read/write traffic reliably with **zero backend `5xx` errors** and **zero server crashes** up to the `300`-VU test ceiling.
+- **Peak Requests Handled:** **`189.6` req/s** (`44,748` reqs in `3m 56s` with `0.00%` backend API errors at `120` VUs), **`146.5` redirects/s** (`GET /:code`), **`60.5` cached analytics reads/s** (`GET /api/info/:code`), **`48.7` PostgreSQL link writes/s** (`POST /api/shorten`), and **`134.2` req/s** under sustained `300`-VU 70/30 read/write stress (`16,787` persisted shortens).
+- **Concurrent Users Capacity (Tight-Loop k6 VUs):**
+  - **Optimal Low-Latency Zone (`15–50` concurrent active VUs / `~54–110` req/s):** Redirects average `110–168ms` (`p(95) < 460ms`), cached analytics average `107.6ms` (`p(95) 193.9ms`), and Chromium **LCP** averages `1330.5ms` (`TTFB 146.0ms`).
+  - **High-Load Zero-API-Error Zone (`50–120` concurrent active VUs / `~110–190` req/s):** All `29,368` backend API requests in `live:peak` returned `0.00%` errors (`482–616ms` avg).
+  - **Extreme Burst & Stress Ceiling (`200–300` concurrent active VUs / `~82–134` req/s):** Survived an instant `10 → 300`-VU spike (`0.00%` dropped connections) and 7-minute `300`-VU stress (`99.96%` checks passed), trading latency (`~1.0–1.3s` avg, `~2.5–2.8s` `p(95)`) for complete stability.
 
 ### Why Grafana k6 + Split-Origin Methodology
 
