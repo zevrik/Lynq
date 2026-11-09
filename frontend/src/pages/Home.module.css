@@ -266,6 +266,8 @@
   box-shadow: var(--shadow-card);
   position: relative;
   min-height: 412px;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
 }
 
@@ -312,6 +314,9 @@
   }
   .heroTrustBullets {
     justify-content: center;
+  }
+  .heroRightCard {
+    min-height: auto;
   }
 }
 

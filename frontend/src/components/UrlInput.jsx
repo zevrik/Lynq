@@ -34,6 +34,13 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!isSignedIn) {
+      setShowAdvanced(false);
+      setShowSmartRules(false);
+    }
+  }, [isSignedIn]);
+
   const validateForm = () => {
     const newErrors = {};
     let isValid = true;
@@ -69,6 +76,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
   };
 
   const handleAiSuggest = async () => {
+    if (!isSignedIn) return;
     // For AI, we only care that the URL is valid
     if (!url.trim()) {
       setErrors((prev) => ({ ...prev, url: 'Please enter a URL first.' }));
@@ -110,33 +118,35 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
     }
 
     const routingRules = {};
-    const hasDevice = iosUrl.trim() || androidUrl.trim() || desktopUrl.trim();
-    if (hasDevice) {
-      routingRules.device = {};
-      if (iosUrl.trim()) routingRules.device.ios = iosUrl.trim();
-      if (androidUrl.trim()) routingRules.device.android = androidUrl.trim();
-      if (desktopUrl.trim()) routingRules.device.desktop = desktopUrl.trim();
-    }
-    if (fallbackUrl.trim()) {
-      routingRules.fallbackUrl = fallbackUrl.trim();
-    }
-    const validSplits = splitVariants.filter((v) => v.url && v.url.trim());
-    if (validSplits.length > 0) {
-      routingRules.splitTest = validSplits.map((v) => ({
-        url: v.url.trim(),
-        weight: Number(v.weight) || 50,
-      }));
+    if (isSignedIn) {
+      const hasDevice = iosUrl.trim() || androidUrl.trim() || desktopUrl.trim();
+      if (hasDevice) {
+        routingRules.device = {};
+        if (iosUrl.trim()) routingRules.device.ios = iosUrl.trim();
+        if (androidUrl.trim()) routingRules.device.android = androidUrl.trim();
+        if (desktopUrl.trim()) routingRules.device.desktop = desktopUrl.trim();
+      }
+      if (fallbackUrl.trim()) {
+        routingRules.fallbackUrl = fallbackUrl.trim();
+      }
+      const validSplits = splitVariants.filter((v) => v.url && v.url.trim());
+      if (validSplits.length > 0) {
+        routingRules.splitTest = validSplits.map((v) => ({
+          url: v.url.trim(),
+          weight: Number(v.weight) || 50,
+        }));
+      }
     }
 
     const success = await onShorten(
       url.trim(),
-      alias.trim() || null,
-      password.trim() || null,
+      isSignedIn ? alias.trim() || null : null,
+      isSignedIn ? password.trim() || null : null,
       expiresInDays || null,
-      maxClicks || null,
+      isSignedIn ? maxClicks || null : null,
       title.trim() || null,
-      tags.trim() || null,
-      Object.keys(routingRules).length > 0 ? routingRules : null
+      isSignedIn ? tags.trim() || null : null,
+      isSignedIn && Object.keys(routingRules).length > 0 ? routingRules : null
     );
 
     if (success) {
@@ -302,24 +312,26 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
         {errors.expiresInDays && <p className={styles.errorText}>⚠ {errors.expiresInDays}</p>}
       </div>
 
-      {/* Advanced Toggle */}
-      <button
-        type="button"
-        className={styles.advancedToggle}
-        onClick={() => setShowAdvanced(!showAdvanced)}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-        Advanced options
-        <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
-        >
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
+      {/* Advanced Toggle & Options (Signed-in Users Only) */}
+      {isSignedIn && (
+        <>
+          <button
+            type="button"
+            className={styles.advancedToggle}
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Advanced options
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
 
       <div className={`${styles.advancedSection} ${showAdvanced ? styles.advancedSectionOpen : ''}`}>
         <div className={styles.gridRow}>
@@ -649,6 +661,8 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* Submit Button */}
       <button

@@ -73,8 +73,23 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     setIsLoading(true);
     setResult(null);
 
+    const safeCustomAlias = isSignedIn ? customAlias : null;
+    const safePassword = isSignedIn ? password : null;
+    const safeMaxClicks = isSignedIn ? maxClicks : null;
+    const safeTags = isSignedIn ? tags : null;
+    const safeRoutingRules = isSignedIn ? routingRules : null;
+
     try {
-      const data = await apiShorten(url, customAlias, password, expiresInDays, maxClicks, title, tags, routingRules);
+      const data = await apiShorten(
+        url,
+        safeCustomAlias,
+        safePassword,
+        expiresInDays,
+        safeMaxClicks,
+        title,
+        safeTags,
+        safeRoutingRules
+      );
       setResult(data);
 
       const newLinkItem = { 

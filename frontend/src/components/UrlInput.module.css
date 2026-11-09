@@ -528,11 +528,13 @@
   padding: 0;
   box-shadow: none;
   animation: none;
-  gap: 14px;
+  flex: 1;
+  justify-content: center;
+  gap: 16px;
 }
 
 .heroFormCard .fieldGroup {
-  gap: 6px;
+  gap: 7px;
 }
 
 .heroFormCard .label {
@@ -556,7 +558,7 @@
 
 .heroFormCard .input {
   font-size: 14.5px;
-  padding: 11px 0;
+  padding: 12px 0;
 }
 
 .heroFormCard .icon {
@@ -585,14 +587,14 @@
 }
 
 .heroFormCard .submitBtn {
-  padding: 12.5px 20px;
+  padding: 13.5px 20px;
   font-size: 15px;
   font-weight: 700;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .heroFormCard .footerHint {
-  margin-top: 6px;
+  margin-top: -8px;
 }
 
 .heroFormCard .shortcut {
