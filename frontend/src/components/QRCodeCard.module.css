@@ -91,7 +91,11 @@
 
 /* Settings Panel */
 .settingsPanel {
-  width: 100%;
+  width: calc(100% + 12px);
+  margin-left: -6px;
+  margin-right: -6px;
+  padding-left: 6px;
+  padding-right: 6px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -99,14 +103,17 @@
   max-height: 0;
   opacity: 0;
   padding-top: 0;
+  padding-bottom: 0;
   border-top: 1px dashed transparent;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .settingsOpen {
-  max-height: 300px;
+  max-height: 320px;
   opacity: 1;
   padding-top: 16px;
+  padding-bottom: 6px;
+  margin-bottom: -6px;
   border-top-color: var(--border);
 }
 

@@ -5,7 +5,7 @@ import { Pipette } from 'lucide-react';
 import styles from './ColorPicker.module.css';
 
 const POPOVER_WIDTH = 236;
-const POPOVER_HEIGHT = 242;
+const POPOVER_HEIGHT = 228;
 
 function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
@@ -157,7 +157,11 @@ export default function ColorPicker({
       top = Math.min(top, Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin));
     }
 
-    const left = clamp(rect.left, margin, Math.max(margin, window.innerWidth - POPOVER_WIDTH - margin));
+    let left = rect.right - POPOVER_WIDTH;
+    if (left < margin && rect.left + POPOVER_WIDTH + margin <= window.innerWidth) {
+      left = rect.left;
+    }
+    left = clamp(left, margin, Math.max(margin, window.innerWidth - POPOVER_WIDTH - margin));
     setCoords({ top, left });
   }, []);
 
