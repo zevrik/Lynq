@@ -1,3 +1,5 @@
+import env from "../config/env.js";
+
 /**
  * URL validator utility.
  * Accepts only valid http:// or https:// URLs.
@@ -17,18 +19,19 @@ export const isValidUrl = (url) => {
       return false;
     }
 
-    const hostname = parsed.hostname;
+    const hostname = parsed.hostname.toLowerCase();
 
-    // Block localhost and common internal IP ranges (SSRF - Server-Side Request Forgery protection)
+    // Block localhost and common internal IP ranges (SSRF protection) unless testingMode is enabled
     const isLocalhost =
-      hostname === "localhost" || 
+      hostname === "localhost" ||
       hostname === "127.0.0.1" ||
-      hostname === "::1";
+      hostname === "::1" ||
+      hostname === "[::1]";
     const isInternalIp =
       /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(hostname);
 
     if (isLocalhost || isInternalIp) {
-      return false;
+      return env.testingMode;
     }
 
     // Ensure valid domain format (at least one dot, no spaces)

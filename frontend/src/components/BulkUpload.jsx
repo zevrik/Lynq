@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
-import { bulkShortenUrls } from '../services/api.js';
+import { bulkShortenUrls, IS_TESTING_MODE } from '../services/api.js';
 import { parseCsv, downloadCsv } from '../utils/csv.js';
 import styles from './BulkUpload.module.css';
 
-const MAX_ROWS = 100;
+const MAX_ROWS = IS_TESTING_MODE ? 5000 : 100;
 
 const SAMPLE_CSV = [
   ['url', 'title', 'alias (Optional)'],

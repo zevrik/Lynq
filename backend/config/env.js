@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+const parseBool = (val) => String(val ?? "").trim().toLowerCase() === "true";
+
 /**
  * Centralised environment config with sensible defaults.
  * Always import this instead of reading process.env directly.
@@ -17,6 +19,7 @@ const env = {
   },
   shortCodeLength: parseInt(process.env.SHORT_CODE_LENGTH, 10) || 6,
   nodeEnv: process.env.NODE_ENV || "development",
+  testingMode: parseBool(process.env.TESTING_MODE) || parseBool(process.env.LOAD_TEST_MODE),
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   clerk: {
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY || "",

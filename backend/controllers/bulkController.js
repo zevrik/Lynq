@@ -1,9 +1,10 @@
+import env from "../config/env.js";
 import { bulkShortenUrls } from "../services/bulkService.js";
 
 /**
  * POST /api/bulk-shorten
  * Body: { rows: Array<{ url, title?, alias? }> }
- * Max 100 rows per request.
+ * Max 100 rows per request (unlimited in testingMode).
  */
 export const handleBulkShorten = async (req, res, next) => {
   try {
@@ -15,7 +16,7 @@ export const handleBulkShorten = async (req, res, next) => {
         .json({ success: false, error: "rows array is required." });
     }
 
-    if (rows.length > 100) {
+    if (!env.testingMode && rows.length > 100) {
       return res
         .status(400)
         .json({ success: false, error: "Maximum 100 URLs per batch." });

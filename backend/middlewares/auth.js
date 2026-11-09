@@ -7,8 +7,8 @@ import env from "../config/env.js";
  * Never throws 401 — allows guests to proceed seamlessly.
  */
 export const optionalAuth = (req, res, next) => {
-  // Allow simulated user in non-production test suites
-  if (env.nodeEnv !== "production" && req.headers["x-test-user-id"]) {
+  // Allow simulated user in non-production or testing mode test suites
+  if ((env.nodeEnv !== "production" || env.testingMode) && req.headers["x-test-user-id"]) {
     req.userId = req.headers["x-test-user-id"];
     return next();
   }
@@ -31,8 +31,8 @@ export const optionalAuth = (req, res, next) => {
  * Rejects requests with 401 if user is not authenticated.
  */
 export const requireAuth = (req, res, next) => {
-  // Allow simulated user in non-production test suites
-  if (env.nodeEnv !== "production" && req.headers["x-test-user-id"]) {
+  // Allow simulated user in non-production or testing mode test suites
+  if ((env.nodeEnv !== "production" || env.testingMode) && req.headers["x-test-user-id"]) {
     req.userId = req.headers["x-test-user-id"];
     return next();
   }

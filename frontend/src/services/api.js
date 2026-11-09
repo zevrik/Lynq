@@ -1,5 +1,33 @@
 import axios from "axios";
 
+export const IS_TESTING_MODE =
+  String(import.meta.env.VITE_TESTING_MODE || "").trim().toLowerCase() === "true";
+
+const TEST_USER_STORAGE_KEY = "lynq_test_user_id";
+
+export const getTestUserId = () => {
+  if (!IS_TESTING_MODE) return null;
+  try {
+    const fromStorage = String(localStorage.getItem(TEST_USER_STORAGE_KEY) || "").trim();
+    const fromEnv = String(import.meta.env.VITE_TEST_USER_ID || "").trim();
+    return fromStorage || fromEnv || null;
+  } catch {
+    return String(import.meta.env.VITE_TEST_USER_ID || "").trim() || null;
+  }
+};
+
+export const setTestUserId = (userId) => {
+  try {
+    if (!IS_TESTING_MODE || !userId) {
+      localStorage.removeItem(TEST_USER_STORAGE_KEY);
+    } else {
+      localStorage.setItem(TEST_USER_STORAGE_KEY, String(userId).trim());
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
+
 const getDeviceId = () => {
   let deviceId = localStorage.getItem("lynq_device_id");
   if (!deviceId) {
@@ -47,19 +75,27 @@ export const setAuthTokenGetter = (getter) => {
 const api = axios.create({
   // Use production URL if defined in Vercel env vars, otherwise default to Vite local proxy
   baseURL: import.meta.env.VITE_API_URL || "/api",
-  timeout: 10000,
+  timeout: IS_TESTING_MODE ? 30000 : 10000,
   headers: { "Content-Type": "application/json" },
 });
 
 api.interceptors.request.use(async (config) => {
+  let hasAuthHeader = false;
   if (authTokenGetter) {
     try {
       const token = await authTokenGetter();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        hasAuthHeader = true;
       }
     } catch {
       // Continue without token
+    }
+  }
+  if (!hasAuthHeader && IS_TESTING_MODE) {
+    const testUserId = getTestUserId();
+    if (testUserId) {
+      config.headers["x-test-user-id"] = testUserId;
     }
   }
   return config;
@@ -82,7 +118,7 @@ export const shortenUrl = async (
   routingRules = null,
 ) => {
   // Only track/send guest deviceId when NOT logged in
-  const deviceId = isUserAuthenticated ? null : getDeviceId();
+  const deviceId = (isUserAuthenticated || Boolean(getTestUserId())) ? null : getDeviceId();
   const { data } = await api.post("/shorten", {
     url,
     customAlias,
@@ -281,7 +317,7 @@ export const claimUserLinks = async (links = [], deviceId = null) => {
  * @returns {Promise<object>}
  */
 export const getRateLimits = async () => {
-  const guestDeviceId = isUserAuthenticated ? null : peekGuestDeviceId();
+  const guestDeviceId = (isUserAuthenticated || Boolean(getTestUserId())) ? null : peekGuestDeviceId();
   const headers = guestDeviceId ? { "x-device-id": guestDeviceId } : undefined;
   const { data } = await api.get("/limits", { headers });
   return data;

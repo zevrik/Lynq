@@ -8,6 +8,19 @@ if (env.geminiApiKey) {
   genAI = new GoogleGenerativeAI(env.geminiApiKey);
 }
 
+const FETCH_TIMEOUT_MS = 3000;
+const AI_TIMEOUT_MS = 4000;
+
+const withTimeout = (promise, ms, label = "Operation") => {
+  let timer;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    }),
+  ]);
+};
+
 /**
  * Basic HTML parser to extract page title & description to assist Gemini.
  */
@@ -21,6 +34,7 @@ export const extractContext = async (targetUrl) => {
       try {
         const oembedRes = await fetch(
           `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`,
+          { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
         );
         if (oembedRes.ok) {
           const data = await oembedRes.json();
@@ -35,6 +49,7 @@ export const extractContext = async (targetUrl) => {
     // Fallback to standard scraping for other sites (or if oEmbed fails)
     if (!title) {
       const res = await fetch(targetUrl, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
@@ -126,7 +141,11 @@ Generate JSON with the following keys:
 - tags: An array of 3 relevant short keywords.
 Only return valid JSON matching this schema, no markdown.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await withTimeout(
+      model.generateContent(prompt),
+      AI_TIMEOUT_MS,
+      "Gemini AI suggest",
+    );
     const responseText = result.response.text();
     return JSON.parse(responseText);
   } catch (error) {
@@ -182,7 +201,11 @@ Respond strictly in JSON format:
   "summary": "First sentence. Second sentence."
 }`;
 
-      const result = await model.generateContent(prompt);
+      const result = await withTimeout(
+        model.generateContent(prompt),
+        AI_TIMEOUT_MS,
+        "Gemini AI summary",
+      );
       const data = JSON.parse(result.response.text());
       if (data.summary && data.summary.trim()) {
         summary = data.summary.trim();
@@ -252,7 +275,11 @@ Respond strictly in JSON:
   "alternatives": ["alias-1", "alias-2", "alias-3", "alias-4", "alias-5"]
 }`;
 
-      const result = await model.generateContent(prompt);
+      const result = await withTimeout(
+        model.generateContent(prompt),
+        AI_TIMEOUT_MS,
+        "Gemini AI aliases",
+      );
       const data = JSON.parse(result.response.text());
       if (Array.isArray(data.alternatives)) {
         data.alternatives.forEach((alt) => {

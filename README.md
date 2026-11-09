@@ -236,6 +236,7 @@ Lynq/
 │   │   └── main.jsx             # Root entry + ClerkProvider theme configuration
 │   ├── vite.config.js           # Vite dev proxy (/api -> 127.0.0.1:5000)
 │   ├── vercel.json              # Vercel SPA rewrite configuration
+│   ├── .env.example             # Frontend environment template
 │   └── package.json
 ├── .gitignore
 └── README.md
@@ -293,7 +294,7 @@ cp backend/.env.example backend/.env
 | `CLERK_PUBLISHABLE_KEY` | Optional | `pk_test_...` | Clerk publishable key for JWT verification middleware. |
 | `CLERK_SECRET_KEY` | Optional | `sk_test_...` | Clerk secret key enabling authenticated endpoints & quotas. |
 | `GEMINI_API_KEY` | Optional | `AIza...` | Google Gemini API key (`gemini-2.5-flash`). |
-| `LOAD_TEST_MODE` | Optional | `false` | Set `"true"` only during controlled external load tests to bypass Redis rate limiters. |
+| `TESTING_MODE` | Optional | `false` | Set `true` during testing to bypass rate limits, guest link/expiry caps, bulk row cap, `localhost` SSRF blocks, and enable `x-test-user-id` auth (legacy `LOAD_TEST_MODE=true` also accepted). |
 
 #### Frontend Variables (`frontend/.env`, optional in local dev)
 
@@ -301,6 +302,7 @@ cp backend/.env.example backend/.env
 | :--- | :--- | :--- | :--- |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Optional | Enables Clerk Sign-In & Profile UI | If omitted, frontend runs in instant guest shortener mode. |
 | `VITE_API_URL` | No | `/api` | Proxied to `http://127.0.0.1:5000` in Vite dev; set to your deployed backend `/api` URL in split deployments (e.g., Vercel). |
+| `VITE_TESTING_MODE` | Optional | `false` | Set `true` during testing to unlock unlimited UI expiry, advanced guest options, 5,000-row bulk CSV, and simulated `?testUser=<id>` auth without Clerk OTP/CAPTCHA. |
 
 ### 3. Start Backend & Frontend
 

@@ -40,7 +40,7 @@ export const resolveRateLimitIdentity = (req) => {
   let userId = req.userId || null;
 
   if (!userId) {
-    if (env.nodeEnv !== "production" && req.headers["x-test-user-id"]) {
+    if ((env.nodeEnv !== "production" || env.testingMode) && req.headers["x-test-user-id"]) {
       userId = req.headers["x-test-user-id"];
     } else if (env.clerk?.secretKey) {
       try {
@@ -90,6 +90,17 @@ const STORE_PREFIXES = {
  */
 export const getRateLimitUsage = async (req) => {
   const identity = resolveRateLimitIdentity(req);
+  if (env.testingMode) {
+    return {
+      identity,
+      usage: {
+        perMinute: 0,
+        perHour: 0,
+        perDay: 0,
+      },
+    };
+  }
+
   const keys = [
     `${STORE_PREFIXES.shortenMin}${identity.key}`,
     `${STORE_PREFIXES.shortenHr}${identity.key}`,
@@ -125,22 +136,24 @@ export const getRateLimitUsage = async (req) => {
 };
 
 /**
- * Build a RedisStore only when the Redis client is ready.
- * Calling this before connectRedis() causes a ClientClosedError,
- * so we use a factory exported and called AFTER Redis connects.
+ * Build a RedisStore when testingMode is disabled.
+ * Calling RedisStore before connectRedis() causes ClientClosedError, so we skip
+ * initializing Redis stores completely in testing mode and rely on skip().
  */
 const makeRedisStore = (prefix) =>
-  new RedisStore({
-    sendCommand: (...args) => client.sendCommand(args),
-    prefix: prefix,
-  });
+  env.testingMode
+    ? undefined
+    : new RedisStore({
+        sendCommand: (...args) => client.sendCommand(args),
+        prefix: prefix,
+      });
 
 /**
  * Factory — called once from server.js AFTER connectRedis() resolves.
  * Returns middleware limiters ready to register in Express.
  */
 export const createLimiters = () => {
-  const isLoadTest = process.env.LOAD_TEST_MODE === "true";
+  const isTestingMode = () => env.testingMode;
 
   const keyGen = (req) => resolveRateLimitIdentity(req).key;
 
@@ -151,17 +164,15 @@ export const createLimiters = () => {
    */
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: (req) => {
-      if (isLoadTest) return 100_000;
-      return resolveRateLimitIdentity(req).isAuthenticated
+    limit: (req) =>
+      resolveRateLimitIdentity(req).isAuthenticated
         ? RATE_LIMITS.user.apiPerMinute
-        : RATE_LIMITS.guest.apiPerMinute;
-    },
+        : RATE_LIMITS.guest.apiPerMinute,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
     skip: (req) =>
-      process.env.LOAD_TEST_MODE === "true" ||
+      isTestingMode() ||
       req.path === "/health" ||
       req.path.startsWith("/live/"),
     keyGenerator: keyGen,
@@ -181,15 +192,14 @@ export const createLimiters = () => {
    */
   const shortenMinuteLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: (req) => {
-      if (isLoadTest) return 100_000;
-      return resolveRateLimitIdentity(req).isAuthenticated
+    limit: (req) =>
+      resolveRateLimitIdentity(req).isAuthenticated
         ? RATE_LIMITS.user.shortenPerMinute
-        : RATE_LIMITS.guest.shortenPerMinute;
-    },
+        : RATE_LIMITS.guest.shortenPerMinute,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.shortenMin),
     message: (req) => ({
@@ -207,15 +217,14 @@ export const createLimiters = () => {
    */
   const shortenHourLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    limit: (req) => {
-      if (isLoadTest) return 100_000;
-      return resolveRateLimitIdentity(req).isAuthenticated
+    limit: (req) =>
+      resolveRateLimitIdentity(req).isAuthenticated
         ? RATE_LIMITS.user.shortenPerHour
-        : RATE_LIMITS.guest.shortenPerHour;
-    },
+        : RATE_LIMITS.guest.shortenPerHour,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.shortenHr),
     message: (req) => ({
@@ -233,15 +242,14 @@ export const createLimiters = () => {
    */
   const shortenDayLimiter = rateLimit({
     windowMs: 24 * 60 * 60 * 1000,
-    limit: (req) => {
-      if (isLoadTest) return 100_000;
-      return resolveRateLimitIdentity(req).isAuthenticated
+    limit: (req) =>
+      resolveRateLimitIdentity(req).isAuthenticated
         ? RATE_LIMITS.user.shortenPerDay
-        : RATE_LIMITS.guest.shortenPerDay;
-    },
+        : RATE_LIMITS.guest.shortenPerDay,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.shortenDay),
     message: (req) => ({
@@ -258,10 +266,11 @@ export const createLimiters = () => {
    */
   const bulkLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    limit: isLoadTest ? 100_000 : RATE_LIMITS.user.bulkPerHour,
+    limit: RATE_LIMITS.user.bulkPerHour,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.bulk),
     message: {
@@ -276,10 +285,11 @@ export const createLimiters = () => {
    */
   const aiLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    limit: isLoadTest ? 100_000 : RATE_LIMITS.user.aiPerHour,
+    limit: RATE_LIMITS.user.aiPerHour,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.ai),
     message: {
@@ -295,15 +305,14 @@ export const createLimiters = () => {
    */
   const aiSummaryLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    limit: (req) => {
-      if (isLoadTest) return 100_000;
-      return resolveRateLimitIdentity(req).isAuthenticated
+    limit: (req) =>
+      resolveRateLimitIdentity(req).isAuthenticated
         ? RATE_LIMITS.user.aiSummaryPerHour
-        : RATE_LIMITS.guest.aiSummaryPerHour;
-    },
+        : RATE_LIMITS.guest.aiSummaryPerHour,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
+    skip: isTestingMode,
     keyGenerator: keyGen,
     store: makeRedisStore(STORE_PREFIXES.aiSummary),
     message: {

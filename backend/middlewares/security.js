@@ -5,7 +5,7 @@ import env from "../config/env.js";
  * Redirects HTTP requests to HTTPS.
  */
 export const enforceHttps = (req, res, next) => {
-  if (env.nodeEnv === "production") {
+  if (env.nodeEnv === "production" && !env.testingMode) {
     // Check standard express secure flag or reverse proxy header
     const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
 

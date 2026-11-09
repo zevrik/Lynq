@@ -8,7 +8,7 @@ import env from "../config/env.js";
 const errorHandler = (err, req, res, next) => {
   const status = err.status || 500;
   const message =
-    status === 500 && env.nodeEnv === "production"
+    status === 500 && env.nodeEnv === "production" && !env.testingMode
       ? "Something went wrong. Please try again."
       : err.message || "Internal Server Error";
 

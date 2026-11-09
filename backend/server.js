@@ -32,17 +32,19 @@ app.use(
 app.use(compression());
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      env.baseUrl,
-      env.frontendUrl, // Crucial for Vercel deployment!
-    ],
+    origin: env.testingMode
+      ? true
+      : [
+          "http://localhost:5173",
+          "http://localhost:3000",
+          env.baseUrl,
+          env.frontendUrl, // Crucial for Vercel deployment!
+        ],
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "x-test-user-id", "x-device-id"],
   }),
 );
-app.use(express.json({ limit: "10kb" }));
+app.use(express.json({ limit: env.testingMode ? "5mb" : "100kb" }));
 
 // ── Clerk Auth Session Middleware ────────────────────────────────────────────
 if (env.clerk.secretKey) {
@@ -90,6 +92,7 @@ app.get("/api/health", async (_req, res) => {
         : "degraded",
     db: dbStatus,
     redis: redisStatus,
+    testingMode: env.testingMode,
     ts: new Date().toISOString(),
   });
 });
@@ -100,6 +103,9 @@ const start = async () => {
     const server = app.listen(env.port, "0.0.0.0", () => {
       console.log(`🚀 Lynq backend running on http://localhost:${env.port}`);
       console.log(`   BASE_URL → ${env.baseUrl}`);
+      if (env.testingMode) {
+        console.log("   🧪 TESTING_MODE → enabled (rate limits & testing restrictions bypassed)");
+      }
     });
 
     server.on("error", (err) => {

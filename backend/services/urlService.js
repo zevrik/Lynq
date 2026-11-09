@@ -68,8 +68,8 @@ export const shortenUrl = async (
       : null;
   const hasRouting = hasAnyRoutingRule(routingRules);
 
-  // Restrict advanced features for non-login (guest) users
-  if (!userId) {
+  // Restrict advanced features for non-login (guest) users (bypassed in testing mode)
+  if (!userId && !env.testingMode) {
     if (
       trimmedAlias ||
       trimmedPassword ||
@@ -85,12 +85,24 @@ export const shortenUrl = async (
     }
   }
 
-  const maxExpiryDays = userId
-    ? RATE_LIMITS.user.maxExpiryDays
-    : RATE_LIMITS.guest.maxExpiryDays;
-  const numericExpiry = Number(expiresInDays);
+  const maxExpiryDays = env.testingMode
+    ? 36500
+    : userId
+      ? RATE_LIMITS.user.maxExpiryDays
+      : RATE_LIMITS.guest.maxExpiryDays;
+  const rawExpiry =
+    env.testingMode && (expiresInDays === null || expiresInDays === undefined || expiresInDays === "")
+      ? 30
+      : expiresInDays;
+  const numericExpiry = Number(rawExpiry);
 
-  if (!expiresInDays || isNaN(numericExpiry) || numericExpiry < 1) {
+  if (
+    rawExpiry === null ||
+    rawExpiry === undefined ||
+    rawExpiry === "" ||
+    isNaN(numericExpiry) ||
+    numericExpiry < 1
+  ) {
     const err = new Error(
       `Expiry in days is required and must be between 1 and ${maxExpiryDays}.`,
     );
@@ -100,11 +112,11 @@ export const shortenUrl = async (
 
   if (numericExpiry > maxExpiryDays) {
     const err = new Error(
-      userId
+      userId || env.testingMode
         ? `Expiry in days must be between 1 and ${maxExpiryDays}.`
         : `Guest links can only last up to ${maxExpiryDays} days. Sign in to set expiries up to ${RATE_LIMITS.user.maxExpiryDays} days.`,
     );
-    err.status = userId ? 400 : 403;
+    err.status = userId || env.testingMode ? 400 : 403;
     throw err;
   }
 
@@ -164,8 +176,8 @@ export const shortenUrl = async (
     }
   }
 
-  // Enforce active stored links quota per device for non-login users
-  if (!userId && effectiveDeviceId) {
+  // Enforce active stored links quota per device for non-login users (bypassed in testing mode)
+  if (!userId && effectiveDeviceId && !env.testingMode) {
     const { rows: countRows } = await pool.query(
       `SELECT COUNT(*)::int AS active_count
        FROM urls

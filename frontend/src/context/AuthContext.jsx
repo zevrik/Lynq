@@ -7,13 +7,18 @@ import {
   getRateLimits,
   peekGuestDeviceId,
   clearGuestLocalInfo,
+  IS_TESTING_MODE,
+  getTestUserId,
+  setTestUserId,
 } from '../services/api.js';
 
 const AuthContext = createContext({
   isLoaded: true,
   isSignedIn: false,
+  isTestUser: false,
   user: null,
   getToken: async () => null,
+  signOutTestUser: () => {},
   hasClerk: false,
   userLinks: [],
   setUserLinks: () => {},
@@ -22,6 +27,29 @@ const AuthContext = createContext({
   rateLimits: null,
   refreshLimits: async () => null,
 });
+
+const syncTestUserFromUrl = () => {
+  if (!IS_TESTING_MODE || typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('testUser')) {
+      const raw = (params.get('testUser') || '').trim();
+      const lower = raw.toLowerCase();
+      if (!raw || lower === 'off' || lower === 'false' || lower === 'clear') {
+        setTestUserId(null);
+      } else {
+        setTestUserId(raw);
+      }
+      params.delete('testUser');
+      const remaining = params.toString();
+      const nextUrl = `${window.location.pathname}${remaining ? `?${remaining}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  } catch {
+    // ignore URL parsing errors
+  }
+  return getTestUserId();
+};
 
 function ClerkInnerAuthProvider({ children, onClaimSuccess }) {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -81,6 +109,11 @@ function ClerkInnerAuthProvider({ children, onClaimSuccess }) {
     }
     return null;
   }, []);
+
+  // Fetch limits immediately on mount (don't wait for Clerk CDN if offline/slow in testing)
+  useEffect(() => {
+    refreshLimits();
+  }, [refreshLimits]);
 
   // Auto-Sync & Cleanup Hook:
   // 1. On sign-in: claim all guest links + guest deviceId -> clear all guest local info -> load full dashboard links
@@ -174,8 +207,10 @@ function ClerkInnerAuthProvider({ children, onClaimSuccess }) {
       value={{
         isLoaded,
         isSignedIn,
+        isTestUser: false,
         user,
         getToken,
+        signOutTestUser: () => {},
         hasClerk: true,
         userLinks,
         setUserLinks,
@@ -190,9 +225,28 @@ function ClerkInnerAuthProvider({ children, onClaimSuccess }) {
   );
 }
 
-export function AuthProvider({ children, onClaimSuccess }) {
-  const hasClerk = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+function TestUserAuthProvider({ children, testUserId, hasClerk, onSignOut, onClaimSuccess }) {
+  const [userLinks, setUserLinks] = useState([]);
+  const [isLoadingLinks, setIsLoadingLinks] = useState(true);
   const [rateLimits, setRateLimits] = useState(null);
+  const syncedUserIdRef = useRef(null);
+  const onClaimSuccessRef = useRef(onClaimSuccess);
+  onClaimSuccessRef.current = onClaimSuccess;
+
+  setAuthTokenGetter(null);
+
+  const refreshUserLinks = useCallback(async () => {
+    try {
+      const res = await getUserLinks();
+      if (res?.success && Array.isArray(res.links)) {
+        setUserLinks(res.links);
+        return res.links;
+      }
+    } catch (err) {
+      console.error('Failed to load test user links:', err);
+    }
+    return [];
+  }, []);
 
   const refreshLimits = useCallback(async () => {
     try {
@@ -208,10 +262,136 @@ export function AuthProvider({ children, onClaimSuccess }) {
   }, []);
 
   useEffect(() => {
-    if (!hasClerk) {
+    let cancelled = false;
+
+    const runSync = async () => {
+      setIsLoadingLinks(true);
+
+      if (syncedUserIdRef.current !== testUserId) {
+        syncedUserIdRef.current = testUserId;
+
+        let guestLinks = [];
+        try {
+          const stored = localStorage.getItem('lynq-recent');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) guestLinks = parsed;
+          }
+        } catch {
+          guestLinks = [];
+        }
+
+        const guestDeviceId = peekGuestDeviceId();
+        if (guestLinks.length > 0 || guestDeviceId) {
+          try {
+            const res = await claimUserLinks(guestLinks, guestDeviceId);
+            if (!cancelled && res?.success) {
+              clearGuestLocalInfo();
+              window.dispatchEvent(new CustomEvent('lynq-guest-cleared'));
+              if (res.claimedCount > 0 && onClaimSuccessRef.current) {
+                onClaimSuccessRef.current(res.claimedCount);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to claim guest links for test user:', err);
+          }
+        }
+      }
+
+      try {
+        const res = await getUserLinks();
+        if (!cancelled && res?.success && Array.isArray(res.links)) {
+          setUserLinks(res.links);
+        }
+      } catch (err) {
+        console.error('Failed to load test user links:', err);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLinks(false);
+        }
+      }
+
+      if (!cancelled) {
+        refreshLimits();
+      }
+    };
+
+    runSync();
+    return () => {
+      cancelled = true;
+    };
+  }, [testUserId, refreshLimits]);
+
+  const fakeUser = {
+    id: testUserId,
+    fullName: `Test User (${testUserId})`,
+    primaryEmailAddress: { emailAddress: `${testUserId}@test.local` },
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        isLoaded: true,
+        isSignedIn: true,
+        isTestUser: true,
+        user: fakeUser,
+        getToken: async () => null,
+        signOutTestUser: onSignOut,
+        hasClerk,
+        userLinks,
+        setUserLinks,
+        isLoadingLinks,
+        refreshUserLinks,
+        rateLimits,
+        refreshLimits,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function AuthProvider({ children, onClaimSuccess }) {
+  const hasClerk = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+  const [testUserId, setTestUserState] = useState(() => syncTestUserFromUrl());
+  const [rateLimits, setRateLimits] = useState(null);
+
+  const handleSignOutTestUser = useCallback(() => {
+    setTestUserId(null);
+    setTestUserState(null);
+  }, []);
+
+  const refreshLimits = useCallback(async () => {
+    try {
+      const res = await getRateLimits();
+      if (res?.success) {
+        setRateLimits(res);
+        return res;
+      }
+    } catch {
+      // non-fatal
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (!hasClerk && !testUserId) {
       refreshLimits();
     }
-  }, [hasClerk, refreshLimits]);
+  }, [hasClerk, testUserId, refreshLimits]);
+
+  if (IS_TESTING_MODE && testUserId) {
+    return (
+      <TestUserAuthProvider
+        testUserId={testUserId}
+        hasClerk={hasClerk}
+        onSignOut={handleSignOutTestUser}
+        onClaimSuccess={onClaimSuccess}
+      >
+        {children}
+      </TestUserAuthProvider>
+    );
+  }
 
   if (!hasClerk) {
     return (
@@ -219,8 +399,10 @@ export function AuthProvider({ children, onClaimSuccess }) {
         value={{
           isLoaded: true,
           isSignedIn: false,
+          isTestUser: false,
           user: null,
           getToken: async () => null,
+          signOutTestUser: handleSignOutTestUser,
           hasClerk: false,
           userLinks: [],
           setUserLinks: () => {},

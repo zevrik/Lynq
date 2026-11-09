@@ -52,7 +52,7 @@ export const handleShorten = async (req, res, next) => {
       url,
       customAlias || null,
       password || null,
-      expiresInDays || null,
+      expiresInDays ?? null,
       maxClicks || null,
       title || null,
       tags || null,
@@ -424,6 +424,46 @@ export const handleGetLimits = async (req, res, next) => {
     const { identity, usage } = await getRateLimitUsage(req);
     const tier = identity.isAuthenticated ? RATE_LIMITS.user : RATE_LIMITS.guest;
 
+    if (env.testingMode) {
+      return res.status(200).json({
+        success: true,
+        testingMode: true,
+        isAuthenticated: identity.isAuthenticated,
+        scope: identity.scope,
+        limits: {
+          perMinute: null,
+          perHour: null,
+          perDay: null,
+          apiPerMinute: null,
+          maxActiveLinks: null,
+          maxExpiryDays: 36500,
+          bulkPerHour: null,
+          aiPerHour: null,
+        },
+        usage: {
+          perMinute: 0,
+          perHour: 0,
+          perDay: 0,
+          activeLinks: null,
+        },
+        remaining: {
+          perMinute: null,
+          perHour: null,
+          perDay: null,
+          activeLinks: null,
+        },
+        features: {
+          advancedOptions: true,
+          customAlias: true,
+          passwordProtection: true,
+          maxClicks: true,
+          tags: true,
+          bulkUpload: true,
+          aiTools: true,
+        },
+      });
+    }
+
     let activeGuestLinks = null;
     if (!identity.isAuthenticated) {
       const deviceId =
@@ -445,6 +485,7 @@ export const handleGetLimits = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
+      testingMode: false,
       isAuthenticated: identity.isAuthenticated,
       scope: identity.scope,
       limits: {

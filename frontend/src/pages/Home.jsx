@@ -5,7 +5,7 @@ import { SignInButton, UserProfile, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dark } from '@clerk/themes';
 import { BarChart3, Globe, QrCode, ShieldCheck } from 'lucide-react';
-import { shortenUrl as apiShorten, getUrlInfo, editUrl, deleteUrl } from '../services/api.js';
+import { shortenUrl as apiShorten, getUrlInfo, editUrl, deleteUrl, IS_TESTING_MODE } from '../services/api.js';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import { useLynqAuth } from '../context/AuthContext.jsx';
 
@@ -24,7 +24,18 @@ import styles from './Home.module.css';
 const MAX_GUEST_RECENT_STORAGE = 10;
 
 export default function Home({ theme, onToggleTheme, addToast }) {
-  const { isSignedIn, hasClerk, userLinks, setUserLinks, rateLimits, refreshLimits } = useLynqAuth();
+  const {
+    isSignedIn,
+    isTestUser,
+    user,
+    signOutTestUser,
+    hasClerk,
+    userLinks,
+    setUserLinks,
+    rateLimits,
+    refreshLimits,
+  } = useLynqAuth();
+  const isTestingMode = IS_TESTING_MODE || Boolean(rateLimits?.testingMode);
   const [searchParams, setSearchParams] = useSearchParams();
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,10 +79,11 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     setIsLoading(true);
     setResult(null);
 
-    const safeCustomAlias = isSignedIn ? customAlias : null;
-    const safePassword = isSignedIn ? password : null;
-    const safeMaxClicks = isSignedIn ? maxClicks : null;
-    const safeTags = isSignedIn ? tags : null;
+    const allowAdvanced = isSignedIn || isTestingMode;
+    const safeCustomAlias = allowAdvanced ? customAlias : null;
+    const safePassword = allowAdvanced ? password : null;
+    const safeMaxClicks = allowAdvanced ? maxClicks : null;
+    const safeTags = allowAdvanced ? tags : null;
 
     try {
       const data = await apiShorten(
@@ -102,11 +114,14 @@ export default function Home({ theme, onToggleTheme, addToast }) {
           ...prev.filter((r) => r.shortCode !== data.shortCode),
         ]);
       } else {
-        // Guest: update local browser recent list (capped at guest limit)
-        setRecentUrls((prev) => [
-          newLinkItem,
-          ...prev.filter((r) => r.shortCode !== data.shortCode),
-        ].slice(0, MAX_GUEST_RECENT_STORAGE));
+        // Guest: update local browser recent list (unlimited in testing mode, capped otherwise)
+        setRecentUrls((prev) => {
+          const updated = [
+            newLinkItem,
+            ...prev.filter((r) => r.shortCode !== data.shortCode),
+          ];
+          return isTestingMode ? updated : updated.slice(0, MAX_GUEST_RECENT_STORAGE);
+        });
       }
 
       addToast(
@@ -129,7 +144,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, addToast, setUserLinks, setRecentUrls, refreshLimits]);
+  }, [isSignedIn, isTestingMode, addToast, setUserLinks, setRecentUrls, refreshLimits]);
 
   const handleBulkAdded = useCallback((successfulResults) => {
     const newItems = successfulResults.map(data => ({
@@ -231,7 +246,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
 
   // Manage Clerk UserProfile: Smooth sliding navbar highlight, slow scroll animations, and end-of-profile Sign Out mounting
   useEffect(() => {
-    if (activeTab !== 'settings') return;
+    if (activeTab !== 'settings' || isTestUser) return;
 
     let resizeTimer = null;
 
@@ -409,7 +424,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
       clearTimeout(t3);
       clearTimeout(resizeTimer);
     };
-  }, [activeTab]);
+  }, [activeTab, isTestUser]);
 
   const refreshResultInfo = useCallback(async (shortCode) => {
     if (!shortCode) return;
@@ -778,7 +793,47 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                     </div>
 
                     <div className={styles.userProfileWrapper}>
-                      {hasClerk ? (
+                      {isTestUser ? (
+                        <div
+                          className={styles.mockSettingsCard}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                fontSize: '16px',
+                                color: 'var(--text-primary)',
+                                marginBottom: '6px',
+                              }}
+                            >
+                              Testing Mode Account Active
+                            </div>
+                            <div style={{ fontSize: '14px' }}>
+                              Signed in as simulated user <code>{user?.id}</code> (via{' '}
+                              <code>x-test-user-id</code>). Rate limits and testing restrictions
+                              are bypassed.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.userSettingSignOutBtn}
+                            onClick={() => {
+                              signOutTestUser();
+                              setActiveTab('links');
+                              addToast('Signed out of test user session.', 'info', 2000);
+                            }}
+                            data-tooltip="Exit simulated test user session"
+                          >
+                            Sign out Test User
+                          </button>
+                        </div>
+                      ) : hasClerk ? (
                         <div className={styles.accountCardContainer}>
                           <UserProfile
                             routing="hash"
