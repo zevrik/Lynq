@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import CustomQRCode from './CustomQRCode.jsx';
+import ColorPicker from './ColorPicker.jsx';
 import styles from './QRCodeCard.module.css';
 
 export default function QRCodeCard({ url }) {
@@ -90,7 +91,11 @@ export default function QRCodeCard({ url }) {
       <div className={`${styles.settingsPanel} ${showSettings ? styles.settingsOpen : ''}`}>
         <div className={styles.settingGroup}>
           <label>Foreground</label>
-          <input type="color" value={fgColor} onChange={(e) => setFgColor(e.target.value)} />
+          <ColorPicker
+            label="Choose QR foreground color"
+            value={fgColor}
+            onChange={setFgColor}
+          />
         </div>
         <div className={styles.settingGroup}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -104,14 +109,14 @@ export default function QRCodeCard({ url }) {
               <span className={styles.transparencyText}>Transparent</span>
             </label>
           </label>
-          <input 
-            type="color" 
-            value={bgColor} 
-            onChange={(e) => {
-              setBgColor(e.target.value);
+          <ColorPicker
+            label="Choose QR background color"
+            value={bgColor}
+            dimmed={isTransparentBg}
+            onChange={(nextColor) => {
+              setBgColor(nextColor);
               setIsTransparentBg(false);
-            }} 
-            style={{ opacity: isTransparentBg ? 0.5 : 1, pointerEvents: isTransparentBg ? 'none' : 'auto' }}
+            }}
           />
         </div>
         

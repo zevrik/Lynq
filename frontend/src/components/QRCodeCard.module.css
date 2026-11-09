@@ -122,24 +122,6 @@
   color: var(--text-secondary);
 }
 
-.settingGroup input[type="color"] {
-  -webkit-appearance: none;
-  border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  cursor: pointer;
-  padding: 0;
-  background: none;
-}
-.settingGroup input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-.settingGroup input[type="color"]::-webkit-color-swatch {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-
 .transparencyToggle {
   display: flex;
   align-items: center;
