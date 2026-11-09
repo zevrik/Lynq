@@ -13,13 +13,19 @@
 }
 
 :global([data-theme='light']) .globeContainer {
-  border-color: rgba(15, 23, 42, 0.12);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  background: radial-gradient(circle at 50% 48%, #ffffff 0%, #f1f5f9 62%, #e2e8f0 100%);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
 }
 
-:global(.scene-tooltip) {
+:global(.scene-tooltip),
+.globeContainer :global(.float-tooltip-kap) {
   z-index: 1000 !important;
   pointer-events: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .canvasWrapper {
@@ -312,6 +318,104 @@
   color: #cbd5e1;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
+}
+
+/* ── Light Mode Overrides ───────────────────────────────────────────────────── */
+:global([data-theme='light']) .titleArea {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:global([data-theme='light']) .titleText {
+  color: #0f172a;
+}
+
+:global([data-theme='light']) .titleSub {
+  color: #475569;
+}
+
+:global([data-theme='light']) .toolBtn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #475569;
+}
+
+:global([data-theme='light']) .toolBtn:hover {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+:global([data-theme='light']) .toolBtnActive {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #4f46e5;
+}
+
+:global([data-theme='light']) .tooltip {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14), 0 0 14px rgba(99, 102, 241, 0.12);
+}
+
+:global([data-theme='light']) .tooltipRegion {
+  color: #0f172a;
+}
+
+:global([data-theme='light']) .tooltipCountry {
+  color: #475569;
+}
+
+:global([data-theme='light']) .tooltipCountRow {
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+:global([data-theme='light']) .tooltipCountVal {
+  color: #0284c7;
+}
+
+:global([data-theme='light']) .hintPillCorner {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #475569;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+:global([data-theme='light']) .legendBar {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+:global([data-theme='light']) .legendLabel {
+  color: #64748b;
+}
+
+:global([data-theme='light']) .legendItem {
+  color: #334155;
+}
+
+:global([data-theme='light']) .legendDot {
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+:global([data-theme='light']) .focusChip {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
+}
+
+:global([data-theme='light']) .focusChip:hover {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #4f46e5;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.16);
+}
+
+:global([data-theme='light']) .focusCount {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
 }
 
 @media (max-width: 768px) {

@@ -487,6 +487,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
               countries={data.countries || []}
               regions={data.regions || []}
               shortCode={shortCode}
+              theme={theme}
             />
 
             {/* Sidebar: Top States & Regions Breakdown */}
