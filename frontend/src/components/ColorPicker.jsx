@@ -313,7 +313,7 @@ export default function ColorPicker({
         }}
         aria-label={label}
         aria-expanded={isOpen}
-        title={label}
+        data-tooltip={label}
       >
         {showSwatchChecker && <span className={styles.swatchChecker} aria-hidden="true" />}
         <span
@@ -376,7 +376,7 @@ export default function ColorPicker({
                   className={styles.eyedropperBtn}
                   onClick={handleEyeDropper}
                   disabled={!supportsEyeDropper}
-                  title={supportsEyeDropper ? 'Pick color from screen' : 'Eyedropper unavailable in this browser'}
+                  data-tooltip={supportsEyeDropper ? 'Pick color from screen' : 'Eyedropper unavailable in this browser'}
                   aria-label="Pick color from screen"
                 >
                   <Pipette size={18} strokeWidth={2} />

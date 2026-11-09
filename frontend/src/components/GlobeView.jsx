@@ -425,7 +425,7 @@ export default function GlobeView({
                   type="button"
                   className={styles.focusChip}
                   onClick={() => focusCountry(c.country)}
-                  title={`Focus on ${name}`}
+                  data-tooltip={`Focus 3D globe camera on ${name}`}
                 >
                   <CountryFlag countryCode={c.country} size="sm" />
                   <span>{name}</span>

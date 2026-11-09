@@ -11,13 +11,20 @@ export default function ThemeToggle({ theme, onToggle }) {
     }
   };
 
+  const tooltipText = `Switch to ${isDark ? 'light' : 'dark'} mode`;
+
   return (
     <div
       className={styles.toggle}
       onClick={handleClick}
-      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      data-tooltip={tooltipText}
     >
-      <Classic duration={750} toggled={isDark} />
+      <Classic
+        duration={750}
+        toggled={isDark}
+        title={null}
+        aria-label={tooltipText}
+      />
     </div>
   );
 }

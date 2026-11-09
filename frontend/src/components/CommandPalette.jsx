@@ -242,7 +242,7 @@ export default function CommandPalette({
                 inputRef.current?.focus();
               }}
               aria-label="Clear search query"
-              title="Clear search"
+              data-tooltip="Clear search"
             >
               ×
             </button>
@@ -324,7 +324,8 @@ export default function CommandPalette({
                             type="button"
                             className={styles.actionBtn}
                             onClick={(e) => handleCopyLink(e, link)}
-                            title="Copy Short Link"
+                            aria-label="Copy Short Link"
+                            data-tooltip="Copy short link to clipboard"
                           >
                             📋
                           </button>
@@ -335,7 +336,8 @@ export default function CommandPalette({
                               e.stopPropagation();
                               window.open(link.originalUrl, '_blank', 'noopener,noreferrer');
                             }}
-                            title="Open Destination"
+                            aria-label="Open Destination"
+                            data-tooltip="Open original destination URL in new tab"
                           >
                             ↗️
                           </button>

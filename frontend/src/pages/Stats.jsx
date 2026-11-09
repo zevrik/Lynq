@@ -245,7 +245,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
         <AppHeader theme={theme} onToggleTheme={onToggleTheme} />
         <div className={styles.contentWrapper}>
           <div className={styles.topNav}>
-            <Link to="/" className={styles.backBtn}>
+            <Link to="/" className={styles.backBtn} data-tooltip="Return to main dashboard">
               ← Back to Dashboard
             </Link>
           </div>
@@ -253,7 +253,12 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
             <div className={styles.errorIcon}>⚠️</div>
             <div className={styles.errorTitle}>Analytics Unavailable</div>
             <div className={styles.errorDesc}>{error || 'Could not locate link telemetry.'}</div>
-            <button type="button" className={styles.backBtn} onClick={() => navigate('/')}>
+            <button
+              type="button"
+              className={styles.backBtn}
+              onClick={() => navigate('/')}
+              data-tooltip="Go back to the Lynq home page"
+            >
               Return to Home
             </button>
           </div>
@@ -272,7 +277,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
       <div className={styles.contentWrapper}>
         {/* ── Top Nav ──────────────────────────────────────────────────────── */}
         <div className={styles.topNav}>
-          <Link to="/" className={styles.backBtn}>
+          <Link to="/" className={styles.backBtn} data-tooltip="Return to main dashboard">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
@@ -282,7 +287,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
 
           <div className={styles.navActions}>
             {/* Live SSE Pulse Pill */}
-            <div className={styles.livePulse} title="Real-time Server-Sent Events active">
+            <div className={styles.livePulse} data-tooltip="Real-time Server-Sent Events stream active">
               <span className={styles.liveDot} style={{ background: liveConnected ? '#10b981' : '#eab308' }} />
               <span>{liveConnected ? 'Live Pulse' : 'Connecting...'}</span>
             </div>
@@ -293,7 +298,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
               type="button"
               className={styles.actionBtn}
               onClick={() => downloadAnalyticsCsv(shortCode)}
-              title="Export historical telemetry to CSV"
+              data-tooltip="Export full historical click telemetry to CSV"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -320,7 +325,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.originalUrlLink}
-                  title={data.originalUrl}
+                  data-tooltip={data.originalUrl}
                 >
                   {data.originalUrl}
                 </a>
@@ -332,7 +337,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 type="button"
                 className={styles.copyPill}
                 onClick={handleCopy}
-                title="Click to copy short URL"
+                data-tooltip={copied ? 'Short link copied to clipboard!' : 'Click to copy short link to clipboard'}
               >
                 <span className={styles.shortUrlText}>{data.shortUrl}</span>
                 <span className={styles.copyLabel}>
@@ -345,7 +350,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.actionBtn}
-                title="Open short URL in new tab"
+                data-tooltip="Open short URL in new tab"
               >
                 <span>Visit</span>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -593,6 +598,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 type="button"
                 className={`${styles.toggleBtn} ${timelineMode === 'total' ? styles.toggleBtnActive : ''}`}
                 onClick={() => setTimelineMode('total')}
+                data-tooltip="Show total click volume over time"
               >
                 Total Visits
               </button>
@@ -600,6 +606,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 type="button"
                 className={`${styles.toggleBtn} ${timelineMode === 'unique' ? styles.toggleBtnActive : ''}`}
                 onClick={() => setTimelineMode('unique')}
+                data-tooltip="Show unique visitor count over time"
               >
                 Unique Visitors
               </button>

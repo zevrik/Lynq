@@ -111,7 +111,12 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
               <p className={styles.subtitle}>Synced across all your devices with permanent ownership</p>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="Close modal"
+            data-tooltip="Close portfolio modal"
+          >
             ✕
           </button>
         </div>
@@ -162,7 +167,7 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                         </div>
                         <div className={styles.topCode}>{top.shortCode}</div>
                         <div className={styles.topClicks}>{top.clicks.toLocaleString()} clicks</div>
-                        <div className={styles.topDest} title={top.originalUrl}>
+                        <div className={styles.topDest} data-tooltip={top.originalUrl}>
                           {top.title || top.originalUrl}
                         </div>
                       </div>
@@ -186,10 +191,21 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                     className={styles.searchInput}
                   />
                   {search && (
-                    <button className={styles.clearSearch} onClick={() => setSearch('')}>✕</button>
+                    <button
+                      className={styles.clearSearch}
+                      onClick={() => setSearch('')}
+                      aria-label="Clear search"
+                      data-tooltip="Clear search filter"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
-                <button className={styles.refreshBtn} onClick={fetchData} title="Refresh links">
+                <button
+                  className={styles.refreshBtn}
+                  onClick={fetchData}
+                  data-tooltip="Reload cloud links and analytics summary"
+                >
                   ↻ Refresh
                 </button>
               </div>
@@ -238,18 +254,20 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                               className={styles.saveEditBtn}
                               onClick={() => handleSaveEdit(link)}
                               disabled={savingEdit}
+                              data-tooltip="Save updated destination URL"
                             >
                               {savingEdit ? 'Saving...' : 'Save'}
                             </button>
                             <button
                               className={styles.cancelEditBtn}
                               onClick={() => setEditingCode(null)}
+                              data-tooltip="Cancel editing"
                             >
                               Cancel
                             </button>
                           </div>
                         ) : (
-                          <div className={styles.destUrl} title={link.originalUrl}>
+                          <div className={styles.destUrl} data-tooltip={link.originalUrl}>
                             {link.title && <strong className={styles.linkTitle}>{link.title} — </strong>}
                             <span>{link.originalUrl}</span>
                           </div>
@@ -267,7 +285,8 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                         <button
                           className={styles.actionBtn}
                           onClick={() => handleCopy(link.shortUrl)}
-                          title="Copy short link"
+                          aria-label="Copy short link"
+                          data-tooltip="Copy short link to clipboard"
                         >
                           📋
                         </button>
@@ -277,7 +296,8 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                             onSelectLink(link);
                             onClose();
                           }}
-                          title="Open Analytics & Live Stream"
+                          aria-label="Open Analytics & Live Stream"
+                          data-tooltip="Open Analytics & Live Stream"
                         >
                           📊
                         </button>
@@ -287,7 +307,8 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                             onClose();
                             navigate(`/stats/${link.shortCode}`);
                           }}
-                          title="Open 3D Globe & Full Stats Page"
+                          aria-label="Open 3D Globe & Full Stats Page"
+                          data-tooltip="Open 3D Globe & Full Stats Page"
                         >
                           🌐
                         </button>
@@ -296,14 +317,16 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
                             <button
                               className={styles.actionBtn}
                               onClick={() => handleStartEdit(link)}
-                              title="Edit destination URL"
+                              aria-label="Edit destination URL"
+                              data-tooltip="Edit destination URL"
                             >
                               ✏️
                             </button>
                             <button
                               className={`${styles.actionBtn} ${styles.deleteBtn}`}
                               onClick={() => handleDelete(link)}
-                              title="Delete link"
+                              aria-label="Delete link"
+                              data-tooltip="Delete link permanently"
                             >
                               🗑️
                             </button>

@@ -23,7 +23,7 @@ export default function AppFooter() {
       <div className={styles.footerGrid}>
         {/* Brand Column */}
         <div className={styles.footerColBrand}>
-          <div className={styles.footerLogo} onClick={handleLogoClick} title="Lynq Dashboard">
+          <div className={styles.footerLogo} onClick={handleLogoClick} data-tooltip="Return to top of Lynq">
             <div className={styles.footerLogoMark}>
               <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
                 <rect width="32" height="32" rx="8" fill="url(#appFooterLogoGrad)" />

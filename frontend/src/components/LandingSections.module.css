@@ -82,11 +82,10 @@
   border-radius: var(--radius-lg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .trustItem:hover {
-  transform: translateY(-2px);
   border-color: rgba(99, 102, 241, 0.35);
 }
 
@@ -168,15 +167,13 @@
   gap: 20px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  transition: transform 0.25s ease,
-              box-shadow 0.25s ease,
+  transition: box-shadow 0.25s ease,
               border-color 0.25s ease;
   overflow: hidden;
   position: relative;
 }
 
 .bentoCard:hover {
-  transform: translateY(-2px);
   border-color: rgba(99, 102, 241, 0.32);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32), 0 0 14px rgba(99, 102, 241, 0.1);
 }
@@ -188,7 +185,6 @@
 }
 
 :global([data-theme='light']) .bentoCard:hover {
-  transform: translateY(-2px);
   border-color: rgba(99, 102, 241, 0.25);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(99, 102, 241, 0.03);
 }
@@ -580,181 +576,9 @@
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
 }
 
-.dashboardMock {
-  background: var(--bg-glass);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.15);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
-
-:global([data-theme='light']) .dashboardMock {
-  background: #ffffff;
-  border-color: rgba(15, 23, 42, 0.08);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(99, 102, 241, 0.04);
-}
-
-.dashMockHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 14px;
-}
-
-.dashMockTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: monospace;
-  color: var(--color-primary-light);
-}
-
-:global([data-theme='light']) .dashMockTitle {
-  color: #4f46e5;
-}
-
-.dashDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-}
-
-.dashStatus {
-  font-size: 11px;
-  font-weight: 700;
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
-  padding: 4px 10px;
-  border-radius: 9999px;
-}
-
-:global([data-theme='light']) .dashStatus {
-  color: #047857;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-}
-
-.dashMetricsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-.dashMetricCard {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-:global([data-theme='light']) .dashMetricCard {
-  background: #f8fafc;
-  border-color: rgba(15, 23, 42, 0.07);
-}
-
-.dashMetricLabel {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-
-.dashMetricVal {
-  font-size: 20px;
-  font-weight: 900;
-  color: var(--text-primary);
-  line-height: 1.25;
-}
-
-.dashValWithIcon {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.channelIconBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
-  flex-shrink: 0;
-}
-
-:global([data-theme='light']) .channelIconBadge {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-}
-
-.dashMetricTrend {
-  font-size: 11px;
-  color: #22c55e;
-  font-weight: 600;
-}
-
-:global([data-theme='light']) .dashMetricTrend {
-  color: #059669;
-}
-
-.dashMockLiveRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-:global([data-theme='light']) .dashMockLiveRow {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.24);
-  color: #334155;
-}
-
-.liveRowText {
-  line-height: 1.45;
+.showcaseRight {
   min-width: 0;
-}
-
-.liveLocationBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  vertical-align: baseline;
-}
-
-.liveRowTime {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-:global([data-theme='light']) .liveRowTime {
-  color: #64748b;
+  width: 100%;
 }
 
 /* ── 5. Integrations Grid ──────────────────────────────────── */
@@ -779,7 +603,6 @@
 }
 
 .toolCard:hover {
-  transform: translateY(-3px);
   border-color: rgba(99, 102, 241, 0.4);
   background: rgba(99, 102, 241, 0.08);
 }
@@ -1184,48 +1007,6 @@
   margin-top: 10px;
 }
 
-/* ── Mini Visual Pills inside Extra Bento Cards ────────────── */
-.mockPillStack {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.mockFeaturePill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 6px 11px;
-  border-radius: 9999px;
-}
-
-.mockFeaturePillAccent {
-  color: #a5b4fc;
-  background: rgba(99, 102, 241, 0.16);
-  border-color: rgba(99, 102, 241, 0.35);
-}
-
-:global([data-theme='light']) .mockFeaturePill {
-  background: #ffffff;
-  border-color: rgba(15, 23, 42, 0.1);
-  color: #334155;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
-}
-
-:global([data-theme='light']) .mockFeaturePillAccent {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.28);
-  color: #4f46e5;
-}
-
 /* ── Guest vs Cloud Account Tiers Section ──────────────────── */
 .tiersGrid {
   display: grid;
@@ -1521,9 +1302,6 @@
     grid-template-columns: repeat(2, 1fr);
   }
   .statsBanner {
-    grid-template-columns: 1fr;
-  }
-  .dashMetricsGrid {
     grid-template-columns: 1fr;
   }
   .footerGrid {

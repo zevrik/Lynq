@@ -510,11 +510,10 @@
   gap: 12px;
   min-width: 0;
   backdrop-filter: blur(12px);
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .statCard:hover {
-  transform: translateY(-2px);
   border-color: rgba(99, 102, 241, 0.35);
 }
 

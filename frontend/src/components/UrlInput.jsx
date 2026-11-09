@@ -206,6 +206,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
               className={styles.aiBtn}
               onClick={handleAiSuggest}
               disabled={isAiLoading || isLoading}
+              data-tooltip="Generate SEO title, custom alias, and tags with Gemini AI"
             >
               {isAiLoading ? <span className="spinner" style={{width: 14, height: 14, borderWidth: 2}} /> : '✨ Auto-Fill with AI'}
             </button>
@@ -293,6 +294,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
             type="button"
             className={styles.advancedToggle}
             onClick={() => setShowAdvanced(!showAdvanced)}
+            data-tooltip={showAdvanced ? 'Hide optional tags, alias, password & max clicks' : 'Configure custom alias, tags, password & click limits'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9"/>
@@ -355,6 +357,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
                 onClick={handleCheckAlias}
                 disabled={aliasStatus === 'checking' || isLoading}
                 className={styles.checkAliasBtn}
+                data-tooltip="Check whether this custom alias is available"
               >
                 {aliasStatus === 'checking'
                   ? <span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} />
@@ -376,6 +379,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
                     className={styles.suggestAltBtn}
                     onClick={handleSuggestAlternatives}
                     disabled={isSuggestingAliases || isLoading}
+                    data-tooltip="Generate available custom alias suggestions with AI"
                   >
                     {isSuggestingAliases ? (
                       <>
@@ -403,6 +407,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
                           setAliasStatus('available');
                           setAliasSuggestions([]);
                         }}
+                        data-tooltip={`Use "${alt}" as your custom alias`}
                       >
                         {alt}
                       </button>
@@ -470,6 +475,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
         type="submit"
         className={styles.submitBtn}
         disabled={isLoading || !url.trim()}
+        data-tooltip={!url.trim() ? 'Enter a valid destination URL to shorten it' : 'Shorten this URL and generate live analytics & QR code'}
       >
         {isLoading ? <span className="spinner" /> : (
           <>

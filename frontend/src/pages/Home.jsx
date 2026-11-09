@@ -541,7 +541,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                 </h1>
 
                 <p className={styles.heroDesc}>
-                  Free custom link shortener with real-time click telemetry, interactive 3D geo analytics, custom QR codes, and AI phishing protection.
+                  Free URL shortener with live click analytics, interactive 3D geo insights, custom QR studio, and AI protection.
                 </p>
               </div>
 
@@ -576,7 +576,11 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                 <div className={styles.heroCtaRow}>
                   {hasClerk ? (
                     <SignInButton mode="modal" oauthFlow="popup">
-                      <button type="button" className={styles.heroPrimaryBtn}>
+                      <button
+                        type="button"
+                        className={styles.heroPrimaryBtn}
+                        data-tooltip="Sign in to unlock unlimited links & pro tools"
+                      >
                         <span>Get Started Free</span>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M5 12h14M12 5l7 7-7 7" />
@@ -584,7 +588,12 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                       </button>
                     </SignInButton>
                   ) : (
-                    <button type="button" className={styles.heroPrimaryBtn} onClick={scrollToInput}>
+                    <button
+                      type="button"
+                      className={styles.heroPrimaryBtn}
+                      onClick={scrollToInput}
+                      data-tooltip="Jump to the URL shortener form"
+                    >
                       <span>Shorten Link Now</span>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M5 12h14M12 5l7 7-7 7" />
@@ -596,6 +605,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                     type="button" 
                     className={styles.heroSecondaryBtn}
                     onClick={() => document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })}
+                    data-tooltip="Scroll to live interactive analytics preview"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="10" />
@@ -643,6 +653,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                   aria-selected={activeTab === 'links'}
                   className={`${styles.sliderBtn} ${activeTab === 'links' ? styles.sliderBtnActive : ''}`}
                   onClick={() => setActiveTab('links')}
+                  data-tooltip="Create, manage, and analyze your shortened links"
                 >
                   {activeTab === 'links' && (
                     <motion.div
@@ -666,6 +677,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                   aria-selected={activeTab === 'settings'}
                   className={`${styles.sliderBtn} ${activeTab === 'settings' ? styles.sliderBtnActive : ''}`}
                   onClick={() => setActiveTab('settings')}
+                  data-tooltip="Manage your account profile and security settings"
                 >
                   {activeTab === 'settings' && (
                     <motion.div
@@ -792,7 +804,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                                 <div className={styles.profileBottomSignOutDesc}>Sign out of your Lynq account session on this device</div>
                               </div>
                               <SignOutButton redirectUrl="/">
-                                <button type="button" className={styles.userSettingSignOutBtn} title="Sign out of your Lynq account">
+                                <button type="button" className={styles.userSettingSignOutBtn} data-tooltip="Sign out of your Lynq account">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                                     <polyline points="16 17 21 12 16 7" />
@@ -844,7 +856,11 @@ export default function Home({ theme, onToggleTheme, addToast }) {
               </div>
             )}
 
-            <LandingSections hasClerk={hasClerk} onScrollToInput={scrollToInput} />
+            <LandingSections
+              hasClerk={hasClerk}
+              theme={theme}
+              onScrollToInput={scrollToInput}
+            />
           </>
         )}
       </main>

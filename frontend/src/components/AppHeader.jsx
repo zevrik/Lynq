@@ -29,7 +29,7 @@ export default function AppHeader({ theme, onToggleTheme, hideSearch = false }) 
     <header className={styles.header}>
       <div className={styles.headerInner}>
         {/* Brand Logo & Name */}
-        <div className={styles.logo} onClick={handleLogoClick} title="Lynq Dashboard">
+        <div className={styles.logo} onClick={handleLogoClick} data-tooltip="Go to Lynq home dashboard">
           <div className={styles.logoMark}>
             <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
               <rect width="32" height="32" rx="8" fill="url(#appHeaderLogoGrad)"/>
@@ -52,7 +52,11 @@ export default function AppHeader({ theme, onToggleTheme, hideSearch = false }) 
         <div className={styles.headerRight}>
           {hasClerk && !isSignedIn && (
             <SignInButton mode="modal" oauthFlow="popup">
-              <button type="button" className={styles.signInBtn}>
+              <button
+                type="button"
+                className={styles.signInBtn}
+                data-tooltip="Sign in or create a free Lynq account"
+              >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                   <polyline points="10 17 15 12 10 7" />
@@ -68,7 +72,7 @@ export default function AppHeader({ theme, onToggleTheme, hideSearch = false }) 
               type="button"
               className={styles.cmdPaletteBtn}
               onClick={handleToggleCmd}
-              title="Search links or commands (Cmd+K / Ctrl+K)"
+              data-tooltip="Search links or run commands (Cmd+K / Ctrl+K)"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />

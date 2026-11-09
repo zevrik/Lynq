@@ -20,7 +20,11 @@ export default function NotFound({ theme, onToggleTheme }) {
           Oops! The link you clicked might be broken, expired, or never existed in the first place. Let's get you back to familiar territory.
         </p>
 
-        <button className={styles.homeButton} onClick={() => navigate('/')}>
+        <button
+          className={styles.homeButton}
+          onClick={() => navigate('/')}
+          data-tooltip="Return to the Lynq home page"
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>

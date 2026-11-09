@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import styles from './Analytics.module.css';
 import { getLiveStreamUrl, downloadAnalyticsCsv } from '../services/api';
+import { downloadCsv } from '../utils/csv';
 import CountryFlag from './CountryFlag.jsx';
 import {
   getCountryName,
@@ -44,13 +45,18 @@ function StatBox({ label, value, icon, subtext }) {
   );
 }
 
-export default function Analytics({ data, theme, onRefresh }) {
+export default function Analytics({
+  data,
+  theme,
+  onRefresh,
+  isDemo = false,
+}) {
   const isLight = theme
     ? theme === 'light'
     : (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
   const [timelineMode, setTimelineMode] = useState('total'); // 'total' | 'unique'
-  const [liveClick, setLiveClick] = useState(null);
-  const [liveConnected, setLiveConnected] = useState(false);
+  const [liveClick, setLiveClick] = useState(() => (isDemo && data?.liveSample ? data.liveSample : null));
+  const [liveConnected, setLiveConnected] = useState(isDemo);
   const [liveTotalClicks, setLiveTotalClicks] = useState(null);
   const [unSyncedBumps, setUnSyncedBumps] = useState(0);
 
@@ -58,11 +64,11 @@ export default function Analytics({ data, theme, onRefresh }) {
   onRefreshRef.current = onRefresh;
 
   useEffect(() => {
-    setLiveClick(null);
-    setLiveConnected(false);
+    setLiveClick(isDemo && data?.liveSample ? data.liveSample : null);
+    setLiveConnected(isDemo);
     setLiveTotalClicks(null);
     setUnSyncedBumps(0);
-  }, [data?.shortCode]);
+  }, [data?.shortCode, isDemo, data?.liveSample]);
 
   useEffect(() => {
     setUnSyncedBumps(0);
@@ -73,7 +79,7 @@ export default function Analytics({ data, theme, onRefresh }) {
 
   // ── Task 3.4: Server-Sent Events (SSE) Live Click Stream ────────────────
   useEffect(() => {
-    if (!data?.shortCode) return;
+    if (!data?.shortCode || isDemo) return;
 
     let eventSource = null;
     try {
@@ -118,16 +124,16 @@ export default function Analytics({ data, theme, onRefresh }) {
         eventSource.close();
       }
     };
-  }, [data?.shortCode]);
+  }, [data?.shortCode, isDemo]);
 
   // Clear live ticker badge after 8s
   useEffect(() => {
-    if (!liveClick) return;
+    if (!liveClick || isDemo) return;
     const timer = setTimeout(() => {
       setLiveClick(null);
     }, 8000);
     return () => clearTimeout(timer);
-  }, [liveClick]);
+  }, [liveClick, isDemo]);
 
   // ── Timeline Data ─────────────────────────────────────────────────────────
   const chartData = useMemo(() => {
@@ -173,8 +179,23 @@ export default function Analytics({ data, theme, onRefresh }) {
   const timelineKey = timelineMode === 'total' ? 'total_clicks' : 'unique_clicks';
   const lineColor = timelineMode === 'total' ? '#6366f1' : '#8b5cf6';
 
+  const handleExportCsv = () => {
+    if (isDemo) {
+      const headers = ['Date', 'Total Clicks', 'Unique Visitors'];
+      const rows = (data.history || []).map((h) => [
+        new Date(h.bucket).toISOString(),
+        h.total_clicks,
+        h.unique_clicks,
+      ]);
+      const csvString = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      downloadCsv(csvString, `lynq-${data.shortCode}-sample-analytics.csv`);
+      return;
+    }
+    downloadAnalyticsCsv(data.shortCode);
+  };
+
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${isDemo ? styles.containerCompact : ''}`}>
       {/* ── Top Header ───────────────────────────────────────── */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
@@ -189,8 +210,8 @@ export default function Analytics({ data, theme, onRefresh }) {
           <button
             type="button"
             className={styles.exportCsvBtn}
-            onClick={() => downloadAnalyticsCsv(data.shortCode)}
-            title="Export full historical click telemetry to CSV"
+            onClick={handleExportCsv}
+            data-tooltip="Export full historical click telemetry to CSV"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -201,7 +222,7 @@ export default function Analytics({ data, theme, onRefresh }) {
           </button>
 
           {/* Live SSE Status Pill */}
-          <div className={styles.liveBadge} title="Real-time SSE event stream active">
+          <div className={styles.liveBadge} data-tooltip="Real-time SSE event stream active">
             <span className={styles.liveDot} style={{ background: liveConnected ? '#10b981' : '#eab308' }} />
             <span>{liveConnected ? 'Live Pulse' : 'Connecting...'}</span>
           </div>
@@ -223,7 +244,7 @@ export default function Analytics({ data, theme, onRefresh }) {
       )}
 
       {/* ── Key Metrics Stats Grid ───────────────────────────── */}
-      <div className={styles.stats}>
+      <div className={`${styles.stats} ${isDemo ? styles.statsCompact : ''}`}>
         <StatBox
           icon="🖱️"
           label="Total Clicks"
@@ -250,7 +271,8 @@ export default function Analytics({ data, theme, onRefresh }) {
       </div>
 
       {/* ── Click Timeline ────────────────────────────── */}
-      <div className={styles.viewSection}>
+      {!isDemo && (
+        <div className={styles.viewSection}>
           {hasTimeline ? (
             <div>
               <div className={styles.chartHeader}>
@@ -260,12 +282,14 @@ export default function Analytics({ data, theme, onRefresh }) {
                   <button 
                     className={`${styles.toggleButton} ${timelineMode === 'total' ? styles.activeText : ''}`}
                     onClick={() => setTimelineMode('total')}
+                    data-tooltip="Show total click volume over time"
                   >
                     Total
                   </button>
                   <button 
                     className={`${styles.toggleButton} ${timelineMode === 'unique' ? styles.activeText : ''}`}
                     onClick={() => setTimelineMode('unique')}
+                    data-tooltip="Show unique visitor count over time"
                   >
                     Unique
                   </button>
@@ -343,11 +367,13 @@ export default function Analytics({ data, theme, onRefresh }) {
               to={`/stats/${data.shortCode}`}
               className={styles.fullStatsBtn}
               style={{ padding: '7px 16px', fontSize: '13px', fontWeight: 600 }}
+              data-tooltip="View 3D globe, geo regions, devices & referrers"
             >
               <span>Open Full Analytics →</span>
             </Link>
           </div>
         </div>
+      )}
     </div>
   );
 }

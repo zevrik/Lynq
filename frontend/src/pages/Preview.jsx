@@ -72,7 +72,7 @@ export default function Preview({ theme, onToggleTheme }) {
               <span className={styles.errorIcon}>🔗</span>
               <h2>Link Not Found</h2>
               <p>{error}</p>
-              <Link to="/" className={styles.backBtn}>← Back to Lynq</Link>
+              <Link to="/" className={styles.backBtn} data-tooltip="Return to Lynq home page">← Back to Lynq</Link>
             </div>
           </div>
         )}
@@ -171,6 +171,7 @@ export default function Preview({ theme, onToggleTheme }) {
               <button
                 className={`${styles.visitBtn} ${!status?.isAlive ? styles.visitBtnDanger : ''}`}
                 onClick={handleVisit}
+                data-tooltip={status?.isAlive ? 'Proceed safely to the destination URL' : 'Open destination URL despite health warning'}
               >
                 {status?.isAlive ? 'Visit Link' : 'Visit Anyway'}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

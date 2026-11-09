@@ -31,7 +31,6 @@ export default function CountryFlag({
       width={dims.width}
       height={dims.height}
       alt={countryCode}
-      title={countryCode}
       loading="lazy"
       className={className}
       style={{

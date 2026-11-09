@@ -27,7 +27,14 @@ function ToastItem({ toast, onRemove }) {
     >
       <span className={styles.icon}>{ICONS[toast.type] || 'ℹ'}</span>
       <p className={styles.message}>{toast.message}</p>
-      <button className={styles.close} onClick={() => onRemove(toast.id)} aria-label="Dismiss">×</button>
+      <button
+        className={styles.close}
+        onClick={() => onRemove(toast.id)}
+        aria-label="Dismiss"
+        data-tooltip="Dismiss notification"
+      >
+        ×
+      </button>
       <div className={styles.progress} ref={barRef} />
     </div>
   );

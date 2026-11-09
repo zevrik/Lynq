@@ -70,7 +70,7 @@ export default function ResultCard({ result, onCopy }) {
           target="_blank"
           rel="noopener noreferrer"
           className={styles.shortUrl}
-          title={result.shortUrl}
+          data-tooltip={`Open ${result.shortUrl}`}
         >
           {result.shortUrl}
         </a>
@@ -81,6 +81,7 @@ export default function ResultCard({ result, onCopy }) {
             className={`${styles.copyBtn} ${copied ? styles.copied : ''}`}
             onClick={handleCopy}
             aria-label={copied ? 'Copied!' : 'Copy short URL'}
+            data-tooltip={copied ? 'Short link copied to clipboard!' : 'Copy short link to clipboard'}
           >
             {copied ? (
               <>
@@ -104,7 +105,7 @@ export default function ResultCard({ result, onCopy }) {
             className={styles.openBtn}
             onClick={openLink}
             aria-label="Open short URL"
-            title="Open in new tab"
+            data-tooltip="Open short link in a new tab"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -117,7 +118,7 @@ export default function ResultCard({ result, onCopy }) {
 
       <div className={styles.originalUrl}>
         <span className={styles.originalLabel}>Original:</span>
-        <span className={styles.originalText} title={result.originalUrl}>
+        <span className={styles.originalText} data-tooltip={result.originalUrl}>
           {result.originalUrl?.length > 60
             ? result.originalUrl.slice(0, 60) + '…'
             : result.originalUrl}

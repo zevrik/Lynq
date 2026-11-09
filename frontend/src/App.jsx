@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound.jsx';
 import Toast from './components/Toast.jsx';
 import ConnectionStatus from './components/ConnectionStatus.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
+import TooltipLayer from './components/TooltipLayer.jsx';
 
 function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
   const navigate = useNavigate();
@@ -148,6 +149,7 @@ function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
       </Routes>
       <ConnectionStatus />
       <Toast toasts={toasts} onRemove={removeToast} />
+      <TooltipLayer theme={theme} />
       {isSignedIn && !isUnlockPage && (
         <CommandPalette
           isOpen={isCmdOpen}

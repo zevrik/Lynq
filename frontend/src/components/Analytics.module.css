@@ -215,6 +215,16 @@
   margin-bottom: 20px;
 }
 
+.containerCompact {
+  padding: 20px;
+}
+
+.statsCompact {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 0;
+}
+
 .statBox {
   display: flex;
   align-items: center;
@@ -228,7 +238,6 @@
 
 .statBox:hover {
   border-color: var(--color-primary);
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
 }
 
@@ -610,7 +619,6 @@
 
 .sourceRow:hover {
   border-color: rgba(99, 102, 241, 0.4);
-  transform: translateX(2px);
 }
 
 .sourceLeft {

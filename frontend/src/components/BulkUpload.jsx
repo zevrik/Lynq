@@ -110,6 +110,7 @@ export default function BulkUpload({ onAdded }) {
         <button
           className={styles.sampleLink}
           onClick={() => downloadCsv(SAMPLE_CSV, 'lynq-sample.csv')}
+          data-tooltip="Download a sample CSV template with required columns"
         >
           ↓ Download sample CSV
         </button>
@@ -149,7 +150,13 @@ export default function BulkUpload({ onAdded }) {
               <span className={styles.fileName}>{fileName}</span>
               <span className={styles.rowCount}>{parsedRows.length} rows</span>
             </div>
-            <button className={styles.resetBtn} onClick={handleReset}>✕ Remove</button>
+            <button
+              className={styles.resetBtn}
+              onClick={handleReset}
+              data-tooltip="Clear selected CSV file and upload another"
+            >
+              ✕ Remove
+            </button>
           </div>
 
           <div className={styles.tableWrapper}>
@@ -165,7 +172,9 @@ export default function BulkUpload({ onAdded }) {
                 {parsedRows.slice(0, 5).map((row, i) => (
                   <tr key={i}>
                     {Object.values(row).map((val, j) => (
-                      <td key={j} title={val}>{val.length > 40 ? val.slice(0, 40) + '…' : val}</td>
+                      <td key={j} data-tooltip={val && val.length > 40 ? val : undefined}>
+                        {val.length > 40 ? val.slice(0, 40) + '…' : val}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -180,6 +189,7 @@ export default function BulkUpload({ onAdded }) {
             className={styles.processBtn}
             onClick={handleProcess}
             disabled={isLoading}
+            data-tooltip={`Batch shorten all ${parsedRows.length} links into your cloud dashboard`}
           >
             {isLoading ? (
               <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Processing…</>

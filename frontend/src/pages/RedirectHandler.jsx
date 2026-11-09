@@ -85,7 +85,11 @@ export default function RedirectHandler() {
           )}
 
           {error && (
-            <button className={styles.submitBtn} onClick={() => navigate('/')}>
+            <button
+              className={styles.submitBtn}
+              onClick={() => navigate('/')}
+              data-tooltip="Return to the Lynq home page"
+            >
               Go Home
             </button>
           )}

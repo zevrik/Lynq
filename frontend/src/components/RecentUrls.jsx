@@ -103,7 +103,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
           <span>{isSignedIn ? 'Your Links' : 'Recent Links'}</span>
           <span 
             className={styles.countBadge}
-            title={isSearching ? `${filteredItems.length} matching of ${items.length} total links` : `Total links created: ${items.length}`}
+            data-tooltip={isSearching ? `${filteredItems.length} matching of ${items.length} total links` : `Total links created: ${items.length}`}
           >
             {isSearching ? `${filteredItems.length}/${items.length}` : items.length}
           </span>
@@ -129,7 +129,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                 type="button"
                 className={styles.searchClearBtn}
                 onClick={() => setSearchQuery('')}
-                title="Clear search"
+                data-tooltip="Clear search"
                 aria-label="Clear search"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -143,7 +143,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
             className={styles.clearBtn}
             onClick={onClear}
             aria-label={isSignedIn ? 'Delete all links' : 'Clear recent URLs'}
-            title={isSignedIn ? 'Delete all links permanently' : 'Clear recent links'}
+            data-tooltip={isSignedIn ? 'Delete all links permanently' : 'Clear recent links from this browser'}
           >
             {isSignedIn ? 'Delete all' : 'Clear all'}
           </button>
@@ -182,12 +182,22 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, item)}
                     />
-                    <button className={styles.saveBtn} onClick={() => handleSave(item)} title="Save">
+                    <button
+                      className={styles.saveBtn}
+                      onClick={() => handleSave(item)}
+                      aria-label="Save destination URL"
+                      data-tooltip="Save updated destination URL"
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
                     </button>
-                    <button className={styles.cancelBtn} onClick={() => setEditingId(null)} title="Cancel">
+                    <button
+                      className={styles.cancelBtn}
+                      onClick={() => setEditingId(null)}
+                      aria-label="Cancel editing"
+                      data-tooltip="Cancel editing"
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -199,7 +209,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                     <button
                       className={styles.itemBtn}
                       onClick={() => onSelect(item)}
-                      title={item.originalUrl}
+                      data-tooltip={`Inspect link & analytics · ${item.originalUrl}`}
                     >
                       <div className={styles.itemInfo}>
                         <div className={styles.itemPrimary}>
@@ -207,7 +217,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                           {item.shortCode in statusMap ? (
                             <span
                               className={statusMap[item.shortCode] ? styles.statusDotOk : styles.statusDotBad}
-                              title={statusMap[item.shortCode] ? 'Destination active' : 'Destination broken'}
+                              data-tooltip={statusMap[item.shortCode] ? 'Destination active' : 'Destination broken'}
                             />
                           ) : (
                             <span className={styles.dot} />
@@ -243,7 +253,8 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                       <Link
                         to={`/stats/${item.shortCode}`}
                         className={styles.statsActionBtn}
-                        title="View 3D globe & full statistics"
+                        aria-label="View 3D globe & full statistics"
+                        data-tooltip="View 3D globe & full statistics"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10" />
@@ -256,7 +267,8 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                         <button
                           className={styles.editActionBtn}
                           onClick={() => startEditing(item)}
-                          title="Edit destination"
+                          aria-label="Edit destination"
+                          data-tooltip="Edit destination URL"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -267,7 +279,8 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                       <button
                         className={styles.deleteBtn}
                         onClick={() => onDelete(item.shortCode)}
-                        title={isSignedIn ? 'Delete link permanently' : 'Remove link'}
+                        aria-label={isSignedIn ? 'Delete link permanently' : 'Remove link'}
+                        data-tooltip={isSignedIn ? 'Delete link permanently' : 'Remove link from recent list'}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M18 6L6 18M6 6l12 12"/>
@@ -295,6 +308,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
             type="button"
             className={styles.showAllBtn}
             onClick={() => setShowAll((prev) => !prev)}
+            data-tooltip={showAll ? 'Collapse to latest links' : `Expand to view all ${items.length} saved links`}
           >
             {showAll ? 'Show less' : `Show all (${items.length})`}
           </button>

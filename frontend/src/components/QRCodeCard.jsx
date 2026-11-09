@@ -66,7 +66,8 @@ export default function QRCodeCard({ url }) {
         <button 
           className={`${styles.settingsToggle} ${showSettings ? styles.settingsActive : ''}`}
           onClick={() => setShowSettings(!showSettings)}
-          title="Customize QR"
+          aria-label="Customize QR"
+          data-tooltip={showSettings ? 'Close QR customization panel' : 'Customize QR colors, shape, and logo'}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
@@ -132,12 +133,14 @@ export default function QRCodeCard({ url }) {
             <button 
               className={`${styles.shapeBtn} ${qrStyle === 'squares' ? styles.activeShape : ''}`} 
               onClick={() => setQrStyle('squares')}
+              data-tooltip="Use classic square QR modules"
             >
               Square
             </button>
             <button 
               className={`${styles.shapeBtn} ${qrStyle === 'dots' ? styles.activeShape : ''}`} 
               onClick={() => setQrStyle('dots')}
+              data-tooltip="Use rounded dot QR modules"
             >
               Round
             </button>
@@ -154,11 +157,20 @@ export default function QRCodeCard({ url }) {
               style={{ display: 'none' }} 
               onChange={handleLogoUpload}
             />
-            <button className={styles.uploadBtn} onClick={() => fileInputRef.current?.click()}>
+            <button
+              className={styles.uploadBtn}
+              onClick={() => fileInputRef.current?.click()}
+              data-tooltip="Upload a custom center logo image for your QR code"
+            >
               Choose Image
             </button>
             {logoUrl && (
-              <button className={styles.clearLogoBtn} onClick={clearLogo} title="Remove Logo">
+              <button
+                className={styles.clearLogoBtn}
+                onClick={clearLogo}
+                aria-label="Remove Logo"
+                data-tooltip="Remove custom center logo"
+              >
                 ✕
               </button>
             )}
@@ -171,6 +183,7 @@ export default function QRCodeCard({ url }) {
         className={styles.downloadBtn}
         onClick={handleDownload}
         aria-label="Download QR Code"
+        data-tooltip="Download high-resolution (1024px) PNG QR code"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

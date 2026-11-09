@@ -1,10 +1,40 @@
 import { useState, useEffect } from 'react';
 import { SignInButton } from '@clerk/clerk-react';
 import { getPlatformStats } from '../services/api.js';
-import CountryFlag from './CountryFlag.jsx';
+import Analytics from './Analytics.jsx';
 import styles from './LandingSections.module.css';
 
-export default function LandingSections({ hasClerk, onScrollToInput }) {
+const NOW_MS = Date.now();
+const DAY_MS = 86_400_000;
+
+const SHOWCASE_DEMO_DATA = {
+  shortCode: 'launch',
+  shortUrl: 'https://lynq.app/launch',
+  originalUrl: 'https://lynq.nisargvekariya.me/blog/platform-launch-2026',
+  title: 'Lynq 2026 Platform Launch',
+  clicks: 48291,
+  uniqueVisitors: 39104,
+  bucketInterval: 'day',
+  countries: [{ country: 'US', count: 18420 }],
+  referrers: [{ referrer: 'x.com', count: 20280 }],
+  history: [
+    { bucket: new Date(NOW_MS - 6 * DAY_MS).toISOString(), total_clicks: 4120, unique_clicks: 3390 },
+    { bucket: new Date(NOW_MS - 5 * DAY_MS).toISOString(), total_clicks: 5280, unique_clicks: 4310 },
+    { bucket: new Date(NOW_MS - 4 * DAY_MS).toISOString(), total_clicks: 6140, unique_clicks: 4980 },
+    { bucket: new Date(NOW_MS - 3 * DAY_MS).toISOString(), total_clicks: 5890, unique_clicks: 4720 },
+    { bucket: new Date(NOW_MS - 2 * DAY_MS).toISOString(), total_clicks: 7640, unique_clicks: 6180 },
+    { bucket: new Date(NOW_MS - 1 * DAY_MS).toISOString(), total_clicks: 9120, unique_clicks: 7340 },
+    { bucket: new Date(NOW_MS).toISOString(), total_clicks: 10101, unique_clicks: 8184 },
+  ],
+  liveSample: {
+    country: 'GB',
+    city: 'London',
+    browser: 'Chrome',
+    device: 'macOS',
+  },
+};
+
+export default function LandingSections({ hasClerk, theme, onScrollToInput }) {
   const [platformStats, setPlatformStats] = useState({
     totalLinks: null,
     totalRedirects: null,
@@ -173,43 +203,6 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
               </p>
             </div>
           </div>
-
-          {/* Row 3 Left (2 cols): Bulk CSV & Cmd+K N-Gram Search */}
-          <div className={`${styles.bentoCard} ${styles.bentoCardWide}`}>
-            <div className={styles.bentoVisual}>
-              <div className={styles.mockPillStack}>
-                <span className={`${styles.mockFeaturePill} ${styles.mockFeaturePillAccent}`}>⌘K Command Palette</span>
-                <span className={styles.mockFeaturePill}>100-Row CSV Batch</span>
-                <span className={styles.mockFeaturePill}>N-Gram Inverted Index</span>
-                <span className={styles.mockFeaturePill}>Single-Query UNNEST</span>
-              </div>
-            </div>
-            <div className={styles.bentoContent}>
-              <div className={styles.bentoIcon}>📁</div>
-              <h3 className={styles.bentoTitle}>Bulk CSV Engine &amp; Instant ⌘K Search</h3>
-              <p className={styles.bentoDesc}>
-                Drag and drop CSV files up to 100 links processed in one PostgreSQL <code>UNNEST</code> batch, and filter every link by alias, title, tags, or URL via the global <code>Cmd+K</code> palette backed by an n-gram inverted index.
-              </p>
-            </div>
-          </div>
-
-          {/* Row 3 Right (1 col): Editable Destinations, Dedup & Multi-Tier Engine */}
-          <div className={styles.bentoCard}>
-            <div className={styles.bentoVisual}>
-              <div className={styles.mockPillStack}>
-                <span className={`${styles.mockFeaturePill} ${styles.mockFeaturePillAccent}`}>Auto Guest Sync</span>
-                <span className={styles.mockFeaturePill}>Edit Target URL</span>
-                <span className={styles.mockFeaturePill}>Dark / Light UI</span>
-              </div>
-            </div>
-            <div className={styles.bentoContent}>
-              <div className={styles.bentoIcon}>✏️</div>
-              <h3 className={styles.bentoTitle}>Editable Targets &amp; Smart Sync</h3>
-              <p className={styles.bentoDesc}>
-                Update destinations anytime, deduplicate identical active links, toggle dark/light themes with live DB &amp; Redis status, and automatically shift guest links into your account on sign-in.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -217,7 +210,6 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
       <section id="showcase" className={styles.section}>
         <div className={styles.showcaseGrid}>
           <div className={styles.showcaseLeft}>
-            <span className={styles.eyebrow}>Real-Time Intelligence</span>
             <h2 className={styles.sectionTitle}>See Lynq in action with live streaming analytics</h2>
             <p className={styles.sectionSubtitle} style={{ textAlign: 'left' }}>
               Incoming clicks read from L1 RAM &amp; Redis Hashes and stream live while a 5-second worker commits batches via single-pass PostgreSQL queries.
@@ -251,77 +243,23 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
             </ul>
 
             <div className={styles.showcaseCta}>
-              <button type="button" className={styles.primaryBtn} onClick={onScrollToInput}>
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={onScrollToInput}
+                data-tooltip="Scroll up to shorten your own URL"
+              >
                 Try Live Shortener Now ↑
               </button>
             </div>
           </div>
 
           <div className={styles.showcaseRight}>
-            <div className={styles.dashboardMock}>
-              <div className={styles.dashMockHeader}>
-                <div className={styles.dashMockTitle}>
-                  <span className={styles.dashDot} />
-                  <span>lynq.app/launch-2026</span>
-                </div>
-                <span className={styles.dashStatus}>Active (200 OK · 100%)</span>
-              </div>
-
-              <div className={styles.dashMetricsGrid}>
-                <div className={styles.dashMetricCard}>
-                  <div className={styles.dashMetricLabel}>Total Clicks</div>
-                  <div className={styles.dashMetricVal}>48,291</div>
-                  <div className={styles.dashMetricTrend}>+24.8% this week</div>
-                </div>
-                <div className={styles.dashMetricCard}>
-                  <div className={styles.dashMetricLabel}>Unique Visitors</div>
-                  <div className={styles.dashMetricVal}>39,104</div>
-                  <div className={styles.dashMetricTrend}>81% new reach</div>
-                </div>
-                <div className={styles.dashMetricCard}>
-                  <div className={styles.dashMetricLabel}>Top Country</div>
-                  <div className={styles.dashMetricVal}>
-                    <span className={styles.dashValWithIcon}>
-                      <CountryFlag countryCode="US" size="md" />
-                      <span>United States</span>
-                    </span>
-                  </div>
-                  <div className={styles.dashMetricTrend}>18,420 clicks</div>
-                </div>
-                <div className={styles.dashMetricCard}>
-                  <div className={styles.dashMetricLabel}>Top Channel</div>
-                  <div className={styles.dashMetricVal}>
-                    <span className={styles.dashValWithIcon}>
-                      <span className={styles.channelIconBadge} aria-hidden="true">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                        </svg>
-                      </span>
-                      <span>Twitter / X</span>
-                    </span>
-                  </div>
-                  <div className={styles.dashMetricTrend}>42% traffic share</div>
-                </div>
-              </div>
-
-              <div className={styles.dashMockLiveRow}>
-                <span className={styles.liveTag}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                  <span>Live Pulse</span>
-                </span>
-                <span className={styles.liveRowText}>
-                  New click from{' '}
-                  <span className={styles.liveLocationBadge}>
-                    <CountryFlag countryCode="GB" size="sm" />
-                    <strong>London, United Kingdom</strong>
-                  </span>{' '}
-                  via Chrome on macOS
-                </span>
-                <span className={styles.liveRowTime}>just now</span>
-              </div>
-            </div>
+            <Analytics
+              data={SHOWCASE_DEMO_DATA}
+              theme={theme}
+              isDemo
+            />
           </div>
         </div>
       </section>
@@ -414,17 +352,31 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
           <div className={styles.ctaButtons}>
             {hasClerk ? (
               <SignInButton mode="modal" oauthFlow="popup">
-                <button type="button" className={styles.ctaPrimaryBtn}>
+                <button
+                  type="button"
+                  className={styles.ctaPrimaryBtn}
+                  data-tooltip="Create a free cloud account to sync and manage links"
+                >
                   Create Free Account →
                 </button>
               </SignInButton>
             ) : (
-              <button type="button" className={styles.ctaPrimaryBtn} onClick={onScrollToInput}>
+              <button
+                type="button"
+                className={styles.ctaPrimaryBtn}
+                onClick={onScrollToInput}
+                data-tooltip="Scroll up to the live URL shortener"
+              >
                 Start Shortening Free →
               </button>
             )}
 
-            <button type="button" className={styles.ctaSecondaryBtn} onClick={onScrollToInput}>
+            <button
+              type="button"
+              className={styles.ctaSecondaryBtn}
+              onClick={onScrollToInput}
+              data-tooltip="Scroll up to shorten a link immediately without signing in"
+            >
               Try Guest Shortener
             </button>
           </div>

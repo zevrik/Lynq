@@ -80,7 +80,12 @@ export default function Unlock({ theme, onToggleTheme, addToast }) {
               autoFocus
               required
             />
-            <button type="submit" className={styles.button} disabled={isVerifying || !password}>
+            <button
+              type="submit"
+              className={styles.button}
+              disabled={isVerifying || !password}
+              data-tooltip={!password ? 'Enter the link password to unlock' : 'Verify password and open destination'}
+            >
               {isVerifying ? 'Verifying...' : 'Unlock Link'}
             </button>
           </div>
