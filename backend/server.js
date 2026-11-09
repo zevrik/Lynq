@@ -13,6 +13,7 @@ import aiRoutes from "./routes/aiRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import { clerkMiddleware } from "@clerk/express";
 import { handleRedirect } from "./controllers/urlController.js";
+import { optionalAuth } from "./middlewares/auth.js";
 import { createLimiters } from "./middlewares/rateLimiter.js";
 import { enforceHttps } from "./middlewares/security.js";
 import errorHandler from "./middlewares/errorHandler.js";
@@ -38,7 +39,7 @@ app.use(
       env.frontendUrl, // Crucial for Vercel deployment!
     ],
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-test-user-id"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-test-user-id", "x-device-id"],
   }),
 );
 app.use(express.json({ limit: "10kb" }));
@@ -123,11 +124,25 @@ const start = async () => {
     // ── Connect Redis + PostgreSQL in parallel (now batched, <250ms) ──────────
     await Promise.all([connectRedis(), initDb()]);
 
+    // ── Resolve optional auth before limiters so limits apply per-user when logged in and per-device otherwise ──
+    app.use("/api", optionalAuth);
+
     // ── Register rate limiters & API routes (requires active Redis client) ───
-    const { apiLimiter, shortenLimiter, bulkLimiter } = createLimiters();
+    const {
+      apiLimiter,
+      shortenMinuteLimiter,
+      shortenHourLimiter,
+      shortenDayLimiter,
+      bulkLimiter,
+      aiLimiter,
+      aiSummaryLimiter,
+    } = createLimiters();
     app.use("/api", apiLimiter);
-    app.use("/api/shorten", shortenLimiter); // 10 shortens per minute
-    app.use("/api/bulk-shorten", bulkLimiter); // 1 bulk upload per hour
+    app.post("/api/shorten", shortenMinuteLimiter, shortenHourLimiter, shortenDayLimiter);
+    app.post("/api/bulk-shorten", bulkLimiter);
+    app.post("/api/ai/suggest", aiLimiter);
+    app.post("/api/ai/suggest-aliases", aiLimiter);
+    app.get("/api/ai/summary/:shortCode", aiSummaryLimiter);
 
     app.use("/api", urlRoutes);
     app.use("/api/ai", aiRoutes);

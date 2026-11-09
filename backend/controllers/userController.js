@@ -4,7 +4,8 @@ import env from "../config/env.js";
 /**
  * POST /api/user/claim-links
  * Claims anonymous/guest links created by this client and binds them to the authenticated user.
- * Body: { links: [{ shortCode, editToken }] } or [{ shortCode, editToken }]
+ * Clears guest `device_id` on claimed links so non-login tracking is removed.
+ * Body: { links?: [{ shortCode, editToken }], deviceId?: string } or [{ shortCode, editToken }]
  */
 export const handleClaimLinks = async (req, res, next) => {
   try {
@@ -14,7 +15,24 @@ export const handleClaimLinks = async (req, res, next) => {
     }
 
     const rawLinks = req.body?.links || (Array.isArray(req.body) ? req.body : []);
-    if (!Array.isArray(rawLinks) || rawLinks.length === 0) {
+    const rawDeviceId = req.body?.deviceId;
+    const safeDeviceId =
+      typeof rawDeviceId === "string" && rawDeviceId.trim().length >= 8
+        ? rawDeviceId.trim()
+        : null;
+
+    // Filter valid objects with shortCode and editToken
+    const validPairs = Array.isArray(rawLinks)
+      ? rawLinks.filter(
+          (item) =>
+            item &&
+            typeof item.shortCode === "string" &&
+            typeof item.editToken === "string" &&
+            item.editToken.trim().length > 0,
+        )
+      : [];
+
+    if (validPairs.length === 0 && !safeDeviceId) {
       return res.status(200).json({
         success: true,
         claimedCount: 0,
@@ -23,35 +41,38 @@ export const handleClaimLinks = async (req, res, next) => {
       });
     }
 
-    // Filter valid objects with shortCode and editToken
-    const validPairs = rawLinks.filter(
-      (item) => item && typeof item.shortCode === "string" && typeof item.editToken === "string"
-    );
+    const claimedSet = new Set();
 
-    if (validPairs.length === 0) {
-      return res.status(200).json({
-        success: true,
-        claimedCount: 0,
-        claimedCodes: [],
-        message: "No valid link tokens provided.",
-      });
-    }
-
-    const claimedCodes = [];
-
-    // Process each link: verify edit_token matches, then set user_id
+    // 1. Claim links matching (short_code, edit_token) where not owned by another user
     for (const { shortCode, editToken } of validPairs) {
       const result = await pool.query(
         `UPDATE urls 
-         SET user_id = $1 
-         WHERE short_code = $2 AND edit_token = $3
+         SET user_id = $1, device_id = NULL 
+         WHERE short_code = $2 AND edit_token = $3 AND user_id IS NULL
          RETURNING short_code`,
-        [userId, shortCode, editToken]
+        [userId, shortCode, editToken],
       );
       if (result.rows.length > 0) {
-        claimedCodes.push(result.rows[0].short_code);
+        claimedSet.add(result.rows[0].short_code);
       }
     }
+
+    // 2. Claim any remaining unclaimed links associated with this guest browser deviceId
+    //    (covers duplicate-returned guest links or items created earlier on the same browser)
+    if (safeDeviceId) {
+      const deviceResult = await pool.query(
+        `UPDATE urls
+         SET user_id = $1, device_id = NULL
+         WHERE device_id = $2 AND user_id IS NULL
+         RETURNING short_code`,
+        [userId, safeDeviceId],
+      );
+      for (const row of deviceResult.rows) {
+        claimedSet.add(row.short_code);
+      }
+    }
+
+    const claimedCodes = Array.from(claimedSet);
 
     return res.status(200).json({
       success: true,

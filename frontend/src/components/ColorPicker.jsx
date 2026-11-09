@@ -122,10 +122,12 @@ export default function ColorPicker({
   onChange,
   label = 'Choose color',
   dimmed = false,
+  placement = 'right',
+  anchorContainerRef = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hsv, setHsv] = useState(() => parseColor(value));
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, origin: 'top left' });
 
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
@@ -147,7 +149,33 @@ export default function ColorPicker({
     const trigger = triggerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
+    const containerRect = anchorContainerRef?.current?.getBoundingClientRect();
     const margin = 12;
+
+    if (placement === 'right') {
+      const cardRightEdge = containerRect ? containerRect.right + 14 : rect.right + 14;
+      const swatchRightEdge = rect.right + 12;
+
+      if (cardRightEdge + POPOVER_WIDTH <= window.innerWidth - margin) {
+        const top = clamp(
+          rect.top - 4,
+          margin,
+          Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin),
+        );
+        setCoords({ top, left: cardRightEdge, origin: 'top left' });
+        return;
+      }
+
+      if (swatchRightEdge + POPOVER_WIDTH <= window.innerWidth - margin) {
+        const top = clamp(
+          rect.top - 4,
+          margin,
+          Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin),
+        );
+        setCoords({ top, left: swatchRightEdge, origin: 'top left' });
+        return;
+      }
+    }
 
     const spaceBelow = window.innerHeight - rect.bottom;
     let top = rect.bottom + 10;
@@ -162,8 +190,8 @@ export default function ColorPicker({
       left = rect.left;
     }
     left = clamp(left, margin, Math.max(margin, window.innerWidth - POPOVER_WIDTH - margin));
-    setCoords({ top, left });
-  }, []);
+    setCoords({ top, left, origin: 'top left' });
+  }, [placement, anchorContainerRef]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -311,7 +339,7 @@ export default function ColorPicker({
               style={{
                 top: `${coords.top}px`,
                 left: `${coords.left}px`,
-                transformOrigin: 'top left',
+                transformOrigin: coords.origin || 'top left',
               }}
               initial={{
                 opacity: 0,

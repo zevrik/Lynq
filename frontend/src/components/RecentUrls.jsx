@@ -13,13 +13,21 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
   const [statusMap, setStatusMap] = useState({}); // shortCode → { isAlive }
+
+  useEffect(() => {
+    setSearchQuery('');
+    setShowAll(false);
+    setEditingId(null);
+  }, [isSignedIn]);
 
   // 1. Pre-index search corpus per item (memoized on items changes).
   // Eliminates repeated lowercasing and field traversal on every keystroke.
   const indexedItems = useMemo(() => {
     return items.map((item) => {
       const codeLower = (item.shortCode || '').toLowerCase();
+      const shortUrlLower = (item.shortUrl || '').toLowerCase();
       const titleLower = (item.title || '').toLowerCase();
       const tagsLower = (item.tags || '').toLowerCase();
       const urlLower = (item.originalUrl || '').toLowerCase();
@@ -29,7 +37,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
         titleLower,
         tagsLower,
         urlLower,
-        fullCorpus: `${codeLower} ${titleLower} ${tagsLower} ${urlLower}`,
+        fullCorpus: `${codeLower} ${titleLower} ${tagsLower} ${urlLower} ${shortUrlLower}`,
       };
     });
   }, [items]);
@@ -90,9 +98,10 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
     return matches.map((m) => m.item);
   }, [indexedItems, searchQuery, items]);
 
-  const displayItems = searchQuery.trim() === '' 
-    ? items.slice(0, MAX_VISIBLE_LINKS) 
-    : filteredItems.slice(0, MAX_VISIBLE_LINKS);
+  const isSearching = searchQuery.trim() !== '';
+  const displayItems = isSearching
+    ? filteredItems
+    : (showAll ? items : items.slice(0, MAX_VISIBLE_LINKS));
 
   // Check status for displayed items in parallel (fast, non-blocking)
   useEffect(() => {
@@ -171,7 +180,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
             <input 
               type="text" 
               className={styles.searchInput} 
-              placeholder="Search by alias, title, tags..." 
+              placeholder={isSignedIn ? 'Search all your links...' : 'Search recent links...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -193,13 +202,18 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
               </button>
             )}
           </div>
-          <button className={styles.clearBtn} onClick={onClear} aria-label="Clear recent URLs">
-            Clear all
+          <button
+            className={styles.clearBtn}
+            onClick={onClear}
+            aria-label={isSignedIn ? 'Delete all links' : 'Clear recent URLs'}
+            title={isSignedIn ? 'Delete all links permanently' : 'Clear recent links'}
+          >
+            {isSignedIn ? 'Delete all' : 'Clear all'}
           </button>
         </div>
       </div>
 
-      <ul className={styles.list}>
+      <ul className={`${styles.list} ${(isSearching || showAll) ? styles.listScrollable : ''}`}>
         {displayItems.length === 0 ? (
           <li className={styles.emptyState}>No links found matching "{searchQuery}"</li>
         ) : (
@@ -301,7 +315,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                         </svg>
                       </Link>
 
-                      {item.editToken && (
+                      {(item.editToken || isSignedIn) && (
                         <button
                           className={styles.editActionBtn}
                           onClick={() => startEditing(item)}
@@ -316,7 +330,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
                       <button
                         className={styles.deleteBtn}
                         onClick={() => onDelete(item.shortCode)}
-                        title="Remove from recents"
+                        title={isSignedIn ? 'Delete link permanently' : 'Remove link'}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M18 6L6 18M6 6l12 12"/>
@@ -333,6 +347,22 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
       </AnimatePresence>
     )}
   </ul>
+      {!isSearching && items.length > MAX_VISIBLE_LINKS && (
+        <div className={styles.moreFooter}>
+          <span>
+            {showAll
+              ? `Showing all ${items.length} links`
+              : `Showing latest ${MAX_VISIBLE_LINKS} of ${items.length} links`}
+          </span>
+          <button
+            type="button"
+            className={styles.showAllBtn}
+            onClick={() => setShowAll((prev) => !prev)}
+          >
+            {showAll ? 'Show less' : `Show all (${items.length})`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

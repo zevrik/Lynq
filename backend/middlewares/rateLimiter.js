@@ -1,16 +1,116 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import crypto from "crypto";
+import { getAuth } from "@clerk/express";
 import client from "../config/redis.js";
+import env from "../config/env.js";
 
 /**
- * Helper to generate a unique device hash using IP (IPv6-safe) and User-Agent.
- * Uses express-rate-limit's ipKeyGenerator to normalize IPv6 addresses.
+ * Tiered quota & rate limit definitions for Guests (per device) vs Logged-in Users (per account).
  */
-const generateDeviceKey = (req) => {
-  const ip = ipKeyGenerator(req.ip); // IPv6-safe helper from express-rate-limit
+export const RATE_LIMITS = {
+  guest: {
+    apiPerMinute: 40,
+    shortenPerMinute: 3,
+    shortenPerHour: 5,
+    shortenPerDay: 10,
+    maxActiveLinks: 10,
+    maxExpiryDays: 7,
+    aiSummaryPerHour: 20,
+  },
+  user: {
+    apiPerMinute: 120,
+    shortenPerMinute: 20,
+    shortenPerHour: 100,
+    shortenPerDay: 500,
+    maxActiveLinks: null, // unlimited
+    maxExpiryDays: 365,
+    bulkPerHour: 5,
+    aiPerHour: 30,
+    aiSummaryPerHour: 120,
+  },
+};
+
+/**
+ * Resolve rate-limit identity for the request:
+ * - Authenticated user -> per-login account key (`user:<userId>`)
+ * - Guest user         -> per-device hash (`device:<md5(ip + ua)>`)
+ */
+export const resolveRateLimitIdentity = (req) => {
+  let userId = req.userId || null;
+
+  if (!userId) {
+    if (env.nodeEnv !== "production" && req.headers["x-test-user-id"]) {
+      userId = req.headers["x-test-user-id"];
+    } else if (env.clerk?.secretKey) {
+      try {
+        userId = getAuth(req)?.userId || null;
+      } catch {
+        userId = null;
+      }
+    }
+  }
+
+  if (userId) {
+    return {
+      isAuthenticated: true,
+      scope: "user",
+      userId,
+      key: `user:${userId}`,
+    };
+  }
+
+  const normalizedIp = ipKeyGenerator(req.ip || "127.0.0.1"); // IPv6-safe helper
   const userAgent = req.headers["user-agent"] || "";
-  return crypto.createHash("md5").update(`${ip}-${userAgent}`).digest("hex");
+  const deviceHash = crypto
+    .createHash("md5")
+    .update(`${normalizedIp}-${userAgent}`)
+    .digest("hex");
+
+  return {
+    isAuthenticated: false,
+    scope: "device",
+    userId: null,
+    key: `device:${deviceHash}`,
+  };
+};
+
+const STORE_PREFIXES = {
+  api: "rl_api:",
+  shortenMin: "rl_shorten_min:",
+  shortenHr: "rl_shorten_hr:",
+  shortenDay: "rl_shorten_day:",
+  bulk: "rl_bulk:",
+  ai: "rl_ai:",
+  aiSummary: "rl_ai_summary:",
+};
+
+/**
+ * Read current hit counts from Redis for a requester without incrementing limits.
+ */
+export const getRateLimitUsage = async (req) => {
+  const identity = resolveRateLimitIdentity(req);
+  const readCount = async (prefix) => {
+    if (!client?.isReady) return 0;
+    try {
+      const val = await client.get(`${prefix}${identity.key}`);
+      const parsed = parseInt(val || "0", 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const [perMinute, perHour, perDay] = await Promise.all([
+    readCount(STORE_PREFIXES.shortenMin),
+    readCount(STORE_PREFIXES.shortenHr),
+    readCount(STORE_PREFIXES.shortenDay),
+  ]);
+
+  return {
+    identity,
+    usage: { perMinute, perHour, perDay },
+  };
 };
 
 /**
@@ -26,66 +126,189 @@ const makeRedisStore = (prefix) =>
 
 /**
  * Factory — called once from server.js AFTER connectRedis() resolves.
- * Returns { apiLimiter, shortenLimiter } ready to register as middleware.
+ * Returns middleware limiters ready to register in Express.
  */
 export const createLimiters = () => {
   const isLoadTest = process.env.LOAD_TEST_MODE === "true";
 
+  const keyGen = (req) => resolveRateLimitIdentity(req).key;
+
   /**
-   * General API rate limiter: 60 requests per minute per device.
-   * Set LOAD_TEST_MODE=true in .env to disable during k6 load tests.
+   * General API rate limiter:
+   * - Guest (per device): 40 req/min
+   * - Logged-in (per user): 120 req/min
    */
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: isLoadTest ? 100_000 : 60,
+    limit: (req) => {
+      if (isLoadTest) return 100_000;
+      return resolveRateLimitIdentity(req).isAuthenticated
+        ? RATE_LIMITS.user.apiPerMinute
+        : RATE_LIMITS.guest.apiPerMinute;
+    },
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
-    skip: (req, res) => process.env.LOAD_TEST_MODE === "true",
-    keyGenerator: generateDeviceKey,
-    store: makeRedisStore("rl_api:"),
-    message: {
+    skip: (req) =>
+      process.env.LOAD_TEST_MODE === "true" ||
+      req.path === "/health" ||
+      req.path.startsWith("/live/"),
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.api),
+    message: (req) => ({
       success: false,
-      error: "Too many requests. Please slow down and try again in a minute.",
-    },
+      error: resolveRateLimitIdentity(req).isAuthenticated
+        ? "Too many requests. Please slow down and try again in a minute."
+        : "Guest API rate limit reached (40 req/min per device). Sign in for higher limits or try again in a minute.",
+    }),
   });
 
   /**
-   * Strict limiter for the shorten endpoint: 10 per minute per device.
-   * Set LOAD_TEST_MODE=true in .env to disable during k6 load tests.
+   * Shorten burst limiter (per minute):
+   * - Guest (per device): 3 links/min
+   * - Logged-in (per user): 20 links/min
    */
-  const shortenLimiter = rateLimit({
+  const shortenMinuteLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: isLoadTest ? 100_000 : 10,
+    limit: (req) => {
+      if (isLoadTest) return 100_000;
+      return resolveRateLimitIdentity(req).isAuthenticated
+        ? RATE_LIMITS.user.shortenPerMinute
+        : RATE_LIMITS.guest.shortenPerMinute;
+    },
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
-    keyGenerator: generateDeviceKey,
-    store: makeRedisStore("rl_shorten:"),
-    message: {
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.shortenMin),
+    message: (req) => ({
       success: false,
-      error:
-        "Too many shorten requests. Please wait a minute before trying again.",
-    },
+      error: resolveRateLimitIdentity(req).isAuthenticated
+        ? `Too many shorten requests (${RATE_LIMITS.user.shortenPerMinute}/min). Please wait a minute before trying again.`
+        : `Guest burst limit reached (${RATE_LIMITS.guest.shortenPerMinute} links/min per device). Sign in to create up to ${RATE_LIMITS.user.shortenPerMinute} links/min!`,
+    }),
   });
 
   /**
-   * Bulk CSV upload limiter: 1 request per hour per device.
-   * Set LOAD_TEST_MODE=true in .env to disable during k6 load tests.
+   * Shorten hourly limiter:
+   * - Guest (per device): 5 links/hour
+   * - Logged-in (per user): 100 links/hour
+   */
+  const shortenHourLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: (req) => {
+      if (isLoadTest) return 100_000;
+      return resolveRateLimitIdentity(req).isAuthenticated
+        ? RATE_LIMITS.user.shortenPerHour
+        : RATE_LIMITS.guest.shortenPerHour;
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    passOnStoreError: true,
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.shortenHr),
+    message: (req) => ({
+      success: false,
+      error: resolveRateLimitIdentity(req).isAuthenticated
+        ? `Hourly shorten limit reached (${RATE_LIMITS.user.shortenPerHour} links/hour per account). Please try again later.`
+        : `Guest hourly limit reached (${RATE_LIMITS.guest.shortenPerHour} short URLs/hour per device). Sign in for up to ${RATE_LIMITS.user.shortenPerHour} links/hour!`,
+    }),
+  });
+
+  /**
+   * Shorten daily limiter:
+   * - Guest (per device): 10 links/day
+   * - Logged-in (per user): 500 links/day
+   */
+  const shortenDayLimiter = rateLimit({
+    windowMs: 24 * 60 * 60 * 1000,
+    limit: (req) => {
+      if (isLoadTest) return 100_000;
+      return resolveRateLimitIdentity(req).isAuthenticated
+        ? RATE_LIMITS.user.shortenPerDay
+        : RATE_LIMITS.guest.shortenPerDay;
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    passOnStoreError: true,
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.shortenDay),
+    message: (req) => ({
+      success: false,
+      error: resolveRateLimitIdentity(req).isAuthenticated
+        ? `Daily shorten limit reached (${RATE_LIMITS.user.shortenPerDay} links/day per account). Please try again tomorrow.`
+        : `Guest daily limit reached (${RATE_LIMITS.guest.shortenPerDay} short URLs/day per device). Sign in for up to ${RATE_LIMITS.user.shortenPerDay} links/day!`,
+    }),
+  });
+
+  /**
+   * Bulk CSV upload limiter (authenticated users only):
+   * - 5 batches per hour per login account
    */
   const bulkLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: isLoadTest ? 100_000 : 1,
+    limit: isLoadTest ? 100_000 : RATE_LIMITS.user.bulkPerHour,
     standardHeaders: true,
     legacyHeaders: false,
     passOnStoreError: true,
-    keyGenerator: generateDeviceKey,
-    store: makeRedisStore("rl_bulk:"),
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.bulk),
     message: {
       success: false,
-      error: "Bulk upload limit reached. You can upload a CSV once per hour.",
+      error: `Bulk upload limit reached (${RATE_LIMITS.user.bulkPerHour} batches per hour per account).`,
     },
   });
 
-  return { apiLimiter, shortenLimiter, bulkLimiter };
+  /**
+   * AI tools limiter (Auto-fill / Alias suggestions — authenticated users only):
+   * - 30 requests per hour per login account
+   */
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: isLoadTest ? 100_000 : RATE_LIMITS.user.aiPerHour,
+    standardHeaders: true,
+    legacyHeaders: false,
+    passOnStoreError: true,
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.ai),
+    message: {
+      success: false,
+      error: `AI suggestions limit reached (${RATE_LIMITS.user.aiPerHour} requests/hour per account).`,
+    },
+  });
+
+  /**
+   * AI Summary limiter (public /preview & /stats summary):
+   * - Guest (per device): 20/hour
+   * - Logged-in (per user): 120/hour
+   */
+  const aiSummaryLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: (req) => {
+      if (isLoadTest) return 100_000;
+      return resolveRateLimitIdentity(req).isAuthenticated
+        ? RATE_LIMITS.user.aiSummaryPerHour
+        : RATE_LIMITS.guest.aiSummaryPerHour;
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    passOnStoreError: true,
+    keyGenerator: keyGen,
+    store: makeRedisStore(STORE_PREFIXES.aiSummary),
+    message: {
+      success: false,
+      error: "AI summary request limit reached. Please try again shortly.",
+    },
+  });
+
+  return {
+    apiLimiter,
+    shortenMinuteLimiter,
+    shortenHourLimiter,
+    shortenDayLimiter,
+    shortenLimiter: shortenMinuteLimiter, // backward compat alias
+    bulkLimiter,
+    aiLimiter,
+    aiSummaryLimiter,
+  };
 };

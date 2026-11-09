@@ -7,6 +7,22 @@ import { generateShortCode } from "../utils/codeGenerator.js";
 import { isValidUrl, normaliseUrl } from "../utils/validator.js";
 import { computeVisitorHash, parseClickTelemetry } from "../utils/telemetry.js";
 import redisClient from "../config/redis.js";
+import { RATE_LIMITS } from "../middlewares/rateLimiter.js";
+
+const hasAnyRoutingRule = (routingRules) => {
+  if (!routingRules || typeof routingRules !== "object") return false;
+  if (routingRules.fallbackUrl || routingRules.fallback_url) return true;
+  if (
+    routingRules.device &&
+    (routingRules.device.ios ||
+      routingRules.device.android ||
+      routingRules.device.desktop)
+  ) {
+    return true;
+  }
+  const splitArr = routingRules.splitTest || routingRules.split_test;
+  return Array.isArray(splitArr) && splitArr.length > 0;
+};
 
 export const shortenUrl = async (
   rawUrl,
@@ -28,25 +44,75 @@ export const shortenUrl = async (
     throw err;
   }
 
-  if (
-    !expiresInDays ||
-    isNaN(expiresInDays) ||
-    expiresInDays < 1 ||
-    expiresInDays > 365
-  ) {
+  const trimmedAlias = customAlias ? String(customAlias).trim() : null;
+  const trimmedPassword = password ? String(password).trim() : null;
+  const trimmedTags = tags ? String(tags).trim() : null;
+  const parsedMaxClicks =
+    maxClicks !== null && maxClicks !== undefined && maxClicks !== ""
+      ? parseInt(maxClicks, 10)
+      : null;
+  const hasRouting = hasAnyRoutingRule(routingRules);
+
+  // Restrict advanced features for non-login (guest) users
+  if (!userId) {
+    if (
+      trimmedAlias ||
+      trimmedPassword ||
+      (parsedMaxClicks && parsedMaxClicks > 0) ||
+      trimmedTags ||
+      hasRouting
+    ) {
+      const err = new Error(
+        "Sign in to unlock Custom Aliases, Password Protection, Max Clicks, Tags, and Smart Routing.",
+      );
+      err.status = 403;
+      throw err;
+    }
+  }
+
+  const maxExpiryDays = userId
+    ? RATE_LIMITS.user.maxExpiryDays
+    : RATE_LIMITS.guest.maxExpiryDays;
+  const numericExpiry = Number(expiresInDays);
+
+  if (!expiresInDays || isNaN(numericExpiry) || numericExpiry < 1) {
     const err = new Error(
-      "Expiry in days is required and must be between 1 and 365.",
+      `Expiry in days is required and must be between 1 and ${maxExpiryDays}.`,
     );
     err.status = 400;
     throw err;
   }
 
+  if (numericExpiry > maxExpiryDays) {
+    const err = new Error(
+      userId
+        ? `Expiry in days must be between 1 and ${maxExpiryDays}.`
+        : `Guest links can only last up to ${maxExpiryDays} days. Sign in to set expiries up to ${RATE_LIMITS.user.maxExpiryDays} days.`,
+    );
+    err.status = userId ? 400 : 403;
+    throw err;
+  }
+
+  // Logged-in user links belong exclusively to userId, never a local guest deviceId
+  const effectiveDeviceId = userId ? null : deviceId || null;
+
   // Duplicate check
-  if (!customAlias && !password) {
-    const query = deviceId
-      ? "SELECT * FROM urls WHERE original_url = $1 AND device_id = $2 LIMIT 1"
-      : "SELECT * FROM urls WHERE original_url = $1 AND password_hash IS NULL AND device_id IS NULL LIMIT 1";
-    const params = deviceId ? [originalUrl, deviceId] : [originalUrl];
+  if (!trimmedAlias && !trimmedPassword && !parsedMaxClicks && !hasRouting) {
+    let query;
+    let params;
+    if (userId) {
+      query =
+        "SELECT * FROM urls WHERE original_url = $1 AND user_id = $2 AND password_hash IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+      params = [originalUrl, userId];
+    } else if (effectiveDeviceId) {
+      query =
+        "SELECT * FROM urls WHERE original_url = $1 AND device_id = $2 AND user_id IS NULL AND password_hash IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+      params = [originalUrl, effectiveDeviceId];
+    } else {
+      query =
+        "SELECT * FROM urls WHERE original_url = $1 AND password_hash IS NULL AND device_id IS NULL AND user_id IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+      params = [originalUrl];
+    }
 
     const { rows: existingRows } = await pool.query(query, params);
 
@@ -55,13 +121,23 @@ export const shortenUrl = async (
       // Update expiry
       await pool.query(
         "UPDATE urls SET expires_at = CURRENT_TIMESTAMP + ($1 || ' days')::interval WHERE id = $2",
-        [expiresInDays, existing.id],
+        [numericExpiry, existing.id],
       );
+
+      const isOwner =
+        Boolean(userId && existing.user_id === userId) ||
+        Boolean(
+          !userId &&
+            effectiveDeviceId &&
+            existing.device_id === effectiveDeviceId &&
+            !existing.user_id,
+        );
 
       return {
         shortUrl: `${env.frontendUrl}/${existing.short_code}`,
         shortCode: existing.short_code,
         isExisting: true,
+        editToken: isOwner ? existing.edit_token : undefined,
         data: {
           title: existing.title,
           tags: existing.tags,
@@ -73,7 +149,27 @@ export const shortenUrl = async (
     }
   }
 
-  let shortCode = customAlias ? customAlias.trim() : null;
+  // Enforce active stored links quota per device for non-login users
+  if (!userId && effectiveDeviceId) {
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS active_count
+       FROM urls
+       WHERE device_id = $1
+         AND user_id IS NULL
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+      [effectiveDeviceId],
+    );
+    const activeCount = countRows[0]?.active_count || 0;
+    if (activeCount >= RATE_LIMITS.guest.maxActiveLinks) {
+      const err = new Error(
+        `Guest storage limit reached (max ${RATE_LIMITS.guest.maxActiveLinks} active links per device). Delete an old link or sign in for unlimited links.`,
+      );
+      err.status = 403;
+      throw err;
+    }
+  }
+
+  let shortCode = trimmedAlias || null;
 
   if (shortCode) {
     if (!/^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
@@ -114,8 +210,8 @@ export const shortenUrl = async (
   }
 
   let passwordHash = null;
-  if (password && password.trim().length > 0) {
-    passwordHash = await bcrypt.hash(password.trim(), 10);
+  if (trimmedPassword && trimmedPassword.length > 0) {
+    passwordHash = await bcrypt.hash(trimmedPassword, 10);
   }
 
   const editToken = crypto.randomBytes(16).toString("hex");
@@ -168,12 +264,12 @@ export const shortenUrl = async (
       shortCode,
       originalUrl,
       passwordHash,
-      maxClicks || null,
-      expiresInDays,
+      parsedMaxClicks || null,
+      numericExpiry,
       editToken,
       title,
-      tags,
-      deviceId,
+      trimmedTags,
+      effectiveDeviceId,
       userId || null,
       JSON.stringify(cleanedRules),
     ],
@@ -693,6 +789,7 @@ export const editUrlDestination = async (
   newUrl,
   editToken,
   routingRules = null,
+  userId = null,
 ) => {
   const originalUrl = normaliseUrl(newUrl);
 
@@ -715,8 +812,11 @@ export const editUrlDestination = async (
 
   const data = rows[0];
 
-  if (data.edit_token !== editToken) {
-    const err = new Error("Unauthorized: Invalid edit token.");
+  const isOwnerByUser = Boolean(userId && data.user_id && data.user_id === userId);
+  const isOwnerByToken = Boolean(editToken && data.edit_token === editToken);
+
+  if (!isOwnerByUser && !isOwnerByToken) {
+    const err = new Error("Unauthorized: Invalid edit credentials.");
     err.status = 401;
     throw err;
   }
@@ -743,7 +843,7 @@ export const editUrlDestination = async (
   return { success: true, newUrl: originalUrl };
 };
 
-export const deleteUrl = async (shortCode, editToken) => {
+export const deleteUrl = async (shortCode, editToken, userId = null) => {
   const { rows } = await pool.query(
     "SELECT * FROM urls WHERE short_code = $1",
     [shortCode],
@@ -757,8 +857,11 @@ export const deleteUrl = async (shortCode, editToken) => {
 
   const data = rows[0];
 
-  if (data.edit_token !== editToken) {
-    const err = new Error("Unauthorized: Invalid edit token.");
+  const isOwnerByUser = Boolean(userId && data.user_id && data.user_id === userId);
+  const isOwnerByToken = Boolean(editToken && data.edit_token === editToken);
+
+  if (!isOwnerByUser && !isOwnerByToken) {
+    const err = new Error("Unauthorized: Invalid edit credentials.");
     err.status = 401;
     throw err;
   }

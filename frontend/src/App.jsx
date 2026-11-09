@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from './hooks/useTheme.js';
 import { useToast } from './hooks/useToast.js';
 import { AuthProvider, useLynqAuth } from './context/AuthContext.jsx';
@@ -16,40 +16,41 @@ import CommandPalette from './components/CommandPalette.jsx';
 
 function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
   const navigate = useNavigate();
-  const { isSignedIn } = useLynqAuth();
+  const location = useLocation();
+  const { isSignedIn, userLinks, refreshUserLinks } = useLynqAuth();
   const [isCmdOpen, setIsCmdOpen] = useState(false);
-  const [recentLinks, setRecentLinks] = useState([]);
   const [activeCode, setActiveCode] = useState(null);
 
-  // Sync recent links from localStorage
-  const refreshRecentLinks = useCallback(() => {
-    try {
-      const stored = localStorage.getItem('lynq-recent');
-      if (stored) {
-        setRecentLinks(JSON.parse(stored));
-      }
-    } catch {}
-  }, []);
+  const isUnlockPage = location.pathname.startsWith('/unlock');
 
+  // Ensure CommandPalette closes immediately if user signs out or visits /unlock/:shortCode
   useEffect(() => {
-    refreshRecentLinks();
-  }, [refreshRecentLinks, isCmdOpen]);
+    if (!isSignedIn || isUnlockPage) {
+      setIsCmdOpen(false);
+    }
+  }, [isSignedIn, isUnlockPage]);
 
   // Global keydown listener for Cmd+K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!isSignedIn) return;
+      if (!isSignedIn || isUnlockPage) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        refreshRecentLinks();
-        setIsCmdOpen((prev) => !prev);
+        setIsCmdOpen((prev) => {
+          const next = !prev;
+          if (next) refreshUserLinks();
+          return next;
+        });
       }
     };
 
     const handleToggleCmd = () => {
-      if (!isSignedIn) return;
-      refreshRecentLinks();
-      setIsCmdOpen((prev) => !prev);
+      if (!isSignedIn || isUnlockPage) return;
+      setIsCmdOpen((prev) => {
+        const next = !prev;
+        if (next) refreshUserLinks();
+        return next;
+      });
     };
 
     const handleActiveCode = (e) => {
@@ -65,7 +66,7 @@ function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
       window.removeEventListener('lynq-toggle-cmd', handleToggleCmd);
       window.removeEventListener('lynq-active-code', handleActiveCode);
     };
-  }, [isSignedIn, refreshRecentLinks]);
+  }, [isSignedIn, isUnlockPage, refreshUserLinks]);
 
   // Handlers for Command Palette actions
   const handleSelectLink = (link) => {
@@ -88,11 +89,29 @@ function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
 
   const handleOpenPortfolio = () => {
     if (window.location.pathname !== '/') {
-      navigate('/');
+      navigate('/?tab=links');
+    } else {
+      window.dispatchEvent(new CustomEvent('lynq-open-links'));
     }
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('lynq-open-portfolio'));
-    }, 100);
+    }, 150);
+  };
+
+  const handleOpenSettings = () => {
+    if (window.location.pathname !== '/') {
+      navigate('/?tab=settings');
+    } else {
+      window.dispatchEvent(new CustomEvent('lynq-open-settings'));
+    }
+  };
+
+  const handleOpenLinks = () => {
+    if (window.location.pathname !== '/') {
+      navigate('/?tab=links');
+    } else {
+      window.dispatchEvent(new CustomEvent('lynq-open-links'));
+    }
   };
 
   return (
@@ -129,16 +148,18 @@ function AppContent({ theme, toggleTheme, toasts, addToast, removeToast }) {
       </Routes>
       <ConnectionStatus />
       <Toast toasts={toasts} onRemove={removeToast} />
-      {isSignedIn && (
+      {isSignedIn && !isUnlockPage && (
         <CommandPalette
           isOpen={isCmdOpen}
           onClose={() => setIsCmdOpen(false)}
-          recentLinks={recentLinks}
+          recentLinks={userLinks}
           onSelectLink={handleSelectLink}
           onToggleTheme={toggleTheme}
           currentTheme={theme}
           onFocusNewLink={handleFocusNewLink}
           onOpenPortfolio={handleOpenPortfolio}
+          onOpenSettings={handleOpenSettings}
+          onOpenLinks={handleOpenLinks}
           currentActiveCode={activeCode}
           onExportCsv={downloadAnalyticsCsv}
           addToast={addToast}
@@ -156,7 +177,14 @@ export default function App({ theme: propTheme, onToggleTheme: propToggleTheme }
 
   return (
     <BrowserRouter>
-      <AuthProvider onClaimSuccess={(count) => addToast(`🎉 Synced your guest links to your account! (${count} links claimed)`, 'success')}>
+      <AuthProvider
+        onClaimSuccess={(count) =>
+          addToast(
+            `🎉 Shifted ${count} guest ${count === 1 ? 'link' : 'links'} to your dashboard!`,
+            'success'
+          )
+        }
+      >
         <AppContent
           theme={theme}
           toggleTheme={toggleTheme}

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { optionalAuth } from "../middlewares/auth.js";
+import { optionalAuth, requireAuth } from "../middlewares/auth.js";
 import {
   handleShorten,
   handleGetInfo,
@@ -11,23 +11,27 @@ import {
   handleLiveStream,
   handleExportCsv,
   handleGetPlatformStats,
+  handleGetLimits,
 } from "../controllers/urlController.js";
 import { handleCheckStatus } from "../controllers/statusController.js";
 import { handleBulkShorten } from "../controllers/bulkController.js";
 
 const router = Router();
 
+// GET /api/limits (Tier limits & current usage per device or per login)
+router.get("/limits", optionalAuth, handleGetLimits);
+
 // POST /api/shorten
 router.post("/shorten", optionalAuth, handleShorten);
 
-// POST /api/bulk-shorten
-router.post("/bulk-shorten", handleBulkShorten);
+// POST /api/bulk-shorten (Signed-in users only)
+router.post("/bulk-shorten", requireAuth, handleBulkShorten);
 
 // PUT /api/shorten/:shortCode
-router.put("/shorten/:shortCode", handleEditUrl);
+router.put("/shorten/:shortCode", optionalAuth, handleEditUrl);
 
 // DELETE /api/shorten/:shortCode
-router.delete("/shorten/:shortCode", handleDeleteUrl);
+router.delete("/shorten/:shortCode", optionalAuth, handleDeleteUrl);
 
 // GET /api/info/:shortCode
 router.get("/info/:shortCode", handleGetInfo);

@@ -149,6 +149,47 @@
   gap: 2px;
 }
 
+.listScrollable {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.moreFooter {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.showAllBtn {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.showAllBtn:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+:global([data-theme='light']) .showAllBtn {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.1);
+}
+
 .item { width: 100%; }
 
 .itemBtn {

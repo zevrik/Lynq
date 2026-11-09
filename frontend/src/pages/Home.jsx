@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { SignInButton, UserProfile, SignOutButton } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dark } from '@clerk/themes';
 import { BarChart3, Globe, QrCode, ShieldCheck } from 'lucide-react';
-import { shortenUrl as apiShorten, getUrlInfo, editUrl, deleteUrl, getUserLinks } from '../services/api.js';
+import { shortenUrl as apiShorten, getUrlInfo, editUrl, deleteUrl } from '../services/api.js';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import { useLynqAuth } from '../context/AuthContext.jsx';
 
@@ -21,45 +21,39 @@ import AppFooter from '../components/AppFooter.jsx';
 
 import styles from './Home.module.css';
 
-const MAX_RECENT_STORAGE = 1000;
+const MAX_GUEST_RECENT_STORAGE = 10;
 
 export default function Home({ theme, onToggleTheme, addToast }) {
-  const { isSignedIn, hasClerk, user } = useLynqAuth();
+  const { isSignedIn, hasClerk, userLinks, setUserLinks, rateLimits, refreshLimits } = useLynqAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('links'); // 'links' | 'settings'
   const [isProfileSection, setIsProfileSection] = useState(!window.location.hash.includes('security'));
   const [signOutPortalTarget, setSignOutPortalTarget] = useState(null);
-  const [userLinks, setUserLinks] = useState([]);
-  const [recentUrls, setRecentUrls] = useLocalStorage('lynq-recent', []);
+  const [recentUrls, setRecentUrls, removeRecentUrls] = useLocalStorage('lynq-recent', []);
+  const wasSignedInRef = useRef(isSignedIn);
 
-  // Load user links from backend when signed in
+  // Clear local guest state when AuthContext finishes migrating guest info -> user account
   useEffect(() => {
-    if (isSignedIn) {
-      getUserLinks()
-        .then((res) => {
-          if (res?.success && Array.isArray(res.links)) {
-            setUserLinks(res.links);
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to load user links:', err);
-        });
-    } else {
-      setUserLinks([]);
+    const handleGuestCleared = () => {
+      removeRecentUrls();
+    };
+    window.addEventListener('lynq-guest-cleared', handleGuestCleared);
+    return () => window.removeEventListener('lynq-guest-cleared', handleGuestCleared);
+  }, [removeRecentUrls]);
+
+  // On sign-out, reset logged-in UI state so no account links/results linger in guest view
+  useEffect(() => {
+    if (wasSignedInRef.current && !isSignedIn) {
+      setResult(null);
+      setActiveTab('links');
     }
+    wasSignedInRef.current = isSignedIn;
   }, [isSignedIn]);
 
-  // Unified list of links (signed in cloud links + any pending guest links)
-  const allLinks = useMemo(() => {
-    if (!isSignedIn) {
-      return recentUrls;
-    }
-    const existingCodes = new Set(userLinks.map((l) => l.shortCode));
-    const extraRecent = recentUrls.filter((r) => !existingCodes.has(r.shortCode));
-    return [...extraRecent, ...userLinks];
-  }, [isSignedIn, userLinks, recentUrls]);
+  // Signed-in users use cloud userLinks exclusively; guests use local recentUrls
+  const allLinks = isSignedIn ? userLinks : recentUrls;
 
   const scrollToInput = useCallback(() => {
     const el = document.getElementById('shorten-input-container');
@@ -98,19 +92,22 @@ export default function Home({ theme, onToggleTheme, addToast }) {
         editToken: data.editToken,
         title: data.title,
         tags: data.tags,
+        clicks: data.clicks ?? 0,
       };
 
-      // Optimistically update both states instantly
       if (isSignedIn) {
+        // Logged-in: update cloud dashboard list only (never localStorage guest store)
         setUserLinks((prev) => [
           newLinkItem,
           ...prev.filter((r) => r.shortCode !== data.shortCode),
         ]);
+      } else {
+        // Guest: update local browser recent list (capped at guest limit)
+        setRecentUrls((prev) => [
+          newLinkItem,
+          ...prev.filter((r) => r.shortCode !== data.shortCode),
+        ].slice(0, MAX_GUEST_RECENT_STORAGE));
       }
-      setRecentUrls((prev) => [
-        newLinkItem,
-        ...prev.filter((r) => r.shortCode !== data.shortCode),
-      ].slice(0, MAX_RECENT_STORAGE));
 
       addToast(
         data.isExisting
@@ -119,6 +116,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
         data.isExisting ? 'info' : 'success'
       );
       
+      refreshLimits();
       return true; // Indicate success for form clearing
     } catch (err) {
       const msg =
@@ -126,11 +124,12 @@ export default function Home({ theme, onToggleTheme, addToast }) {
         err?.message ||
         'Something went wrong. Please try again.';
       addToast(msg, 'error');
+      refreshLimits();
       return false; // Indicate failure
     } finally {
       setIsLoading(false);
     }
-  }, [isSignedIn, addToast, setRecentUrls]);
+  }, [isSignedIn, addToast, setUserLinks, setRecentUrls, refreshLimits]);
 
   const handleBulkAdded = useCallback((successfulResults) => {
     const newItems = successfulResults.map(data => ({
@@ -150,22 +149,19 @@ export default function Home({ theme, onToggleTheme, addToast }) {
       });
     }
 
-    setRecentUrls((prev) => {
-      const existingCodes = new Set(newItems.map(item => item.shortCode));
-      const filteredPrev = prev.filter(r => !existingCodes.has(r.shortCode));
-      return [...newItems, ...filteredPrev].slice(0, MAX_RECENT_STORAGE);
-    });
-
-    addToast(`Added ${successfulResults.length} link(s) to list`, 'success');
-  }, [isSignedIn, addToast, setRecentUrls]);
+    refreshLimits();
+    addToast(`Added ${successfulResults.length} link(s) to dashboard`, 'success');
+  }, [isSignedIn, addToast, setUserLinks, refreshLimits]);
 
   const handleSelectRecent = useCallback(async (item) => {
     // Set immediate cached state (isExisting: false so warning badge does not show on simple click)
     setResult({
-      shortUrl: item.shortUrl,
+      shortUrl: item.shortUrl || `${window.location.origin}/${item.shortCode}`,
       shortCode: item.shortCode,
-      originalUrl: item.originalUrl,
-      clicks: 0,
+      originalUrl: item.originalUrl || '',
+      title: item.title,
+      tags: item.tags,
+      clicks: typeof item.clicks === 'number' ? item.clicks : 0,
       isExisting: false,
     });
 
@@ -180,8 +176,9 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     }
   }, []);
 
-  // Listen for selection from Command Palette or ?code= parameter
+  // Listen for selection from Command Palette or ?code= / ?tab= parameters
   const codeParam = searchParams.get('code');
+  const tabParam = searchParams.get('tab');
   useEffect(() => {
     if (codeParam) {
       setActiveTab('links');
@@ -189,9 +186,12 @@ export default function Home({ theme, onToggleTheme, addToast }) {
       setSearchParams({}, { replace: true });
       setTimeout(() => {
         document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
+      }, 320);
+    } else if (tabParam === 'settings' || tabParam === 'links') {
+      setActiveTab(tabParam);
+      setSearchParams({}, { replace: true });
     }
-  }, [codeParam, handleSelectRecent, setSearchParams]);
+  }, [codeParam, tabParam, handleSelectRecent, setSearchParams]);
 
   useEffect(() => {
     const handlePaletteSelect = (e) => {
@@ -200,7 +200,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
         handleSelectRecent(e.detail);
         setTimeout(() => {
           document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
+        }, 320);
       }
     };
 
@@ -440,58 +440,62 @@ export default function Home({ theme, onToggleTheme, addToast }) {
 
   const handleClearRecent = useCallback(async () => {
     const deletePromises = allLinks
-      .filter((item) => item.editToken)
-      .map((item) => deleteUrl(item.shortCode, item.editToken));
+      .filter((item) => item.editToken || isSignedIn)
+      .map((item) => deleteUrl(item.shortCode, item.editToken || null));
 
     // Instant local UI clear
-    setUserLinks([]);
-    setRecentUrls([]);
+    if (isSignedIn) {
+      setUserLinks([]);
+    } else {
+      removeRecentUrls();
+    }
     setResult(null);
 
     if (deletePromises.length > 0) {
       try {
         await Promise.allSettled(deletePromises);
+        refreshLimits();
         addToast('All links deleted permanently.', 'success', 2000);
       } catch (err) {
         console.error('Failed to clear all URLs from backend', err);
       }
     }
-  }, [allLinks, setRecentUrls, addToast]);
+  }, [allLinks, isSignedIn, setUserLinks, removeRecentUrls, refreshLimits, addToast]);
 
   const handleDeleteRecent = useCallback(async (shortCode) => {
     const item = allLinks.find((i) => i.shortCode === shortCode);
     
     // FAST OPTIMISTIC UI: Instantly remove locally in 0ms
-    setUserLinks((prev) => prev.filter((i) => i.shortCode !== shortCode));
-    setRecentUrls((prev) => prev.filter((i) => i.shortCode !== shortCode));
+    if (isSignedIn) {
+      setUserLinks((prev) => prev.filter((i) => i.shortCode !== shortCode));
+    } else {
+      setRecentUrls((prev) => prev.filter((i) => i.shortCode !== shortCode));
+    }
     setResult((prev) => prev?.shortCode === shortCode ? null : prev);
 
     // Background delete execution
-    if (item?.editToken) {
+    if (item?.editToken || isSignedIn) {
       try {
-        await deleteUrl(shortCode, item.editToken);
-        addToast('Link deleted permanently.', 'success', 2000);
-      } catch (err) {
-        console.error('Failed to delete URL from backend', err);
-      }
-    } else if (isSignedIn) {
-      try {
-        await deleteUrl(shortCode, null);
+        await deleteUrl(shortCode, item?.editToken || null);
+        refreshLimits();
         addToast('Link deleted permanently.', 'success', 2000);
       } catch (err) {
         console.error('Failed to delete URL from backend', err);
       }
     }
-  }, [allLinks, isSignedIn, setRecentUrls, addToast]);
+  }, [allLinks, isSignedIn, setUserLinks, setRecentUrls, refreshLimits, addToast]);
 
   const handleEditRecent = useCallback(async (shortCode, newUrl, editToken) => {
     // Fast optimistic UI update
-    setUserLinks((prev) => prev.map((item) => 
-      item.shortCode === shortCode ? { ...item, originalUrl: newUrl } : item
-    ));
-    setRecentUrls((prev) => prev.map((item) => 
-      item.shortCode === shortCode ? { ...item, originalUrl: newUrl } : item
-    ));
+    if (isSignedIn) {
+      setUserLinks((prev) => prev.map((item) => 
+        item.shortCode === shortCode ? { ...item, originalUrl: newUrl } : item
+      ));
+    } else {
+      setRecentUrls((prev) => prev.map((item) => 
+        item.shortCode === shortCode ? { ...item, originalUrl: newUrl } : item
+      ));
+    }
     
     setResult((prev) => {
       if (prev?.shortCode === shortCode) {
@@ -501,14 +505,14 @@ export default function Home({ theme, onToggleTheme, addToast }) {
     });
 
     try {
-      await editUrl(shortCode, newUrl, editToken);
+      await editUrl(shortCode, newUrl, editToken || null);
       addToast('URL updated successfully!', 'success', 2000);
       return true;
     } catch (err) {
       addToast(err?.response?.data?.error || 'Failed to edit URL.', 'error');
       return false;
     }
-  }, [setRecentUrls, addToast]);
+  }, [isSignedIn, setUserLinks, setRecentUrls, addToast]);
 
   const handleCopy = useCallback(() => {
     addToast('✓ Short URL copied to clipboard!', 'success', 2500);
@@ -617,7 +621,13 @@ export default function Home({ theme, onToggleTheme, addToast }) {
 
             <div className={styles.heroRight} id="shorten-input-container">
               <div className={styles.heroRightCard}>
-                <UrlInput onShorten={handleShorten} isLoading={isLoading} isSignedIn={isSignedIn} isHero={true} />
+                <UrlInput
+                  onShorten={handleShorten}
+                  isLoading={isLoading}
+                  isSignedIn={isSignedIn}
+                  isHero={true}
+                  rateLimits={rateLimits}
+                />
               </div>
             </div>
           </div>
@@ -698,7 +708,12 @@ export default function Home({ theme, onToggleTheme, addToast }) {
 
                   {/* ── Logged In Link Shortening Form ───── */}
                   <div className={styles.inputSection} id="shorten-input-container">
-                    <UrlInput onShorten={handleShorten} isLoading={isLoading} isSignedIn={isSignedIn} />
+                    <UrlInput
+                      onShorten={handleShorten}
+                      isLoading={isLoading}
+                      isSignedIn={isSignedIn}
+                      rateLimits={rateLimits}
+                    />
                   </div>
 
                   {/* ── Bulk CSV Upload ─────────────────── */}

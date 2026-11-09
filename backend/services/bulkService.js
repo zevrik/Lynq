@@ -10,8 +10,9 @@ import redisClient from "../config/redis.js"; // Phase 1: Redis caching for inst
  * Each row: { url, title?, customAlias? }
  * Returns an array of results with success/error per row.
  */
-export const bulkShortenUrls = async (rows, deviceId = null) => {
+export const bulkShortenUrls = async (rows, deviceId = null, userId = null) => {
   const results = [];
+  const effectiveDeviceId = userId ? null : deviceId || null;
 
   for (const row of rows) {
     const rawUrl = (row.url || row.URL || row.link || row.Link || "").trim();
@@ -73,11 +74,22 @@ export const bulkShortenUrls = async (rows, deviceId = null) => {
         }
         shortCode = customAlias;
       } else {
-        // Check for existing duplicate (no alias, no password)
-        const query = deviceId
-          ? "SELECT short_code FROM urls WHERE original_url = $1 AND device_id = $2 LIMIT 1"
-          : "SELECT short_code FROM urls WHERE original_url = $1 AND password_hash IS NULL AND device_id IS NULL LIMIT 1";
-        const params = deviceId ? [originalUrl, deviceId] : [originalUrl];
+        // Check for existing duplicate scoped to owner (user_id or guest device_id)
+        let query;
+        let params;
+        if (userId) {
+          query =
+            "SELECT short_code, edit_token FROM urls WHERE original_url = $1 AND user_id = $2 AND password_hash IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+          params = [originalUrl, userId];
+        } else if (effectiveDeviceId) {
+          query =
+            "SELECT short_code, edit_token FROM urls WHERE original_url = $1 AND device_id = $2 AND user_id IS NULL AND password_hash IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+          params = [originalUrl, effectiveDeviceId];
+        } else {
+          query =
+            "SELECT short_code, edit_token FROM urls WHERE original_url = $1 AND password_hash IS NULL AND device_id IS NULL AND user_id IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) LIMIT 1";
+          params = [originalUrl];
+        }
 
         const { rows: dupRows } = await pool.query(query, params);
         if (dupRows.length > 0) {
@@ -87,6 +99,7 @@ export const bulkShortenUrls = async (rows, deviceId = null) => {
             title: title || originalUrl,
             shortUrl: `${env.frontendUrl}/${shortCode}`,
             shortCode,
+            editToken: dupRows[0].edit_token,
             isExisting: true,
             error: null,
           });
@@ -121,11 +134,11 @@ export const bulkShortenUrls = async (rows, deviceId = null) => {
 
       const { rows: insertedRows } = await pool.query(
         `
-        INSERT INTO urls (short_code, original_url, password_hash, max_clicks, expires_at, edit_token, title, tags, device_id)
-        VALUES ($1, $2, NULL, NULL, CURRENT_TIMESTAMP + ($3 || ' days')::interval, $4, $5, NULL, $6)
+        INSERT INTO urls (short_code, original_url, password_hash, max_clicks, expires_at, edit_token, title, tags, device_id, user_id)
+        VALUES ($1, $2, NULL, NULL, CURRENT_TIMESTAMP + ($3 || ' days')::interval, $4, $5, NULL, $6, $7)
         RETURNING id, expires_at
       `,
-        [shortCode, originalUrl, expiresInDays, editToken, title, deviceId],
+        [shortCode, originalUrl, expiresInDays, editToken, title, effectiveDeviceId, userId || null],
       );
 
       // Phase 1 (Task 1.2): Instantly pipeline new short code into Redis so

@@ -13,6 +13,7 @@ import {
 } from "../services/urlService.js";
 import { checkSecurity } from "../services/securityService.js";
 import { getClientIp } from "../utils/telemetry.js";
+import { RATE_LIMITS, getRateLimitUsage } from "../middlewares/rateLimiter.js";
 
 /**
  * POST /api/shorten
@@ -54,7 +55,7 @@ export const handleShorten = async (req, res, next) => {
       maxClicks || null,
       title || null,
       tags || null,
-      deviceId || null,
+      req.userId ? null : deviceId || null,
       req.userId || null,
       routingRules || null,
     );
@@ -79,24 +80,25 @@ export const handleShorten = async (req, res, next) => {
 
 /**
  * PUT /api/shorten/:shortCode
- * Body: { newUrl: string, editToken: string, routingRules?: object }
+ * Body: { newUrl: string, editToken?: string, routingRules?: object }
  */
 export const handleEditUrl = async (req, res, next) => {
   try {
     const { shortCode } = req.params;
     const { newUrl, editToken, routingRules } = req.body;
 
-    if (!newUrl || !editToken) {
+    if (!newUrl || (!editToken && !req.userId)) {
       return res
         .status(400)
-        .json({ success: false, error: "newUrl and editToken are required." });
+        .json({ success: false, error: "newUrl and edit authorization are required." });
     }
 
     const result = await editUrlDestination(
       shortCode,
       newUrl,
-      editToken,
+      editToken || null,
       routingRules || null,
+      req.userId || null,
     );
     return res.status(200).json(result);
   } catch (err) {
@@ -106,20 +108,20 @@ export const handleEditUrl = async (req, res, next) => {
 
 /**
  * DELETE /api/shorten/:shortCode
- * Body: { editToken: string }
+ * Body: { editToken?: string }
  */
 export const handleDeleteUrl = async (req, res, next) => {
   try {
     const { shortCode } = req.params;
-    const { editToken } = req.body;
+    const { editToken } = req.body || {};
 
-    if (!editToken) {
+    if (!editToken && !req.userId) {
       return res
         .status(400)
-        .json({ success: false, error: "editToken is required." });
+        .json({ success: false, error: "edit authorization is required." });
     }
 
-    const result = await deleteUrl(shortCode, editToken);
+    const result = await deleteUrl(shortCode, editToken || null, req.userId || null);
     return res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -398,6 +400,81 @@ export const handleGetPlatformStats = async (_req, res, next) => {
         countriesCount,
         latencyMs,
         uptime: "99.99%",
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/limits
+ * Returns current tier limits and remaining usage:
+ * - Guest: per-device limits (3/min, 5/hr, 10/day, max 10 active links, max 7-day expiry)
+ * - Logged-in: per-account limits (20/min, 100/hr, 500/day, unlimited links, max 365-day expiry)
+ */
+export const handleGetLimits = async (req, res, next) => {
+  try {
+    const { identity, usage } = await getRateLimitUsage(req);
+    const tier = identity.isAuthenticated ? RATE_LIMITS.user : RATE_LIMITS.guest;
+
+    let activeGuestLinks = null;
+    if (!identity.isAuthenticated) {
+      const deviceId =
+        req.headers["x-device-id"] || req.query.deviceId || null;
+      if (deviceId && typeof deviceId === "string" && deviceId.trim().length > 0) {
+        const { rows } = await pool.query(
+          `SELECT COUNT(*)::int AS active_count
+           FROM urls
+           WHERE device_id = $1
+             AND user_id IS NULL
+             AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+          [deviceId.trim()],
+        );
+        activeGuestLinks = rows[0]?.active_count || 0;
+      } else {
+        activeGuestLinks = 0;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      isAuthenticated: identity.isAuthenticated,
+      scope: identity.scope,
+      limits: {
+        perMinute: tier.shortenPerMinute,
+        perHour: tier.shortenPerHour,
+        perDay: tier.shortenPerDay,
+        apiPerMinute: tier.apiPerMinute,
+        maxActiveLinks: tier.maxActiveLinks,
+        maxExpiryDays: tier.maxExpiryDays,
+        ...(identity.isAuthenticated
+          ? { bulkPerHour: tier.bulkPerHour, aiPerHour: tier.aiPerHour }
+          : {}),
+      },
+      usage: {
+        perMinute: usage.perMinute,
+        perHour: usage.perHour,
+        perDay: usage.perDay,
+        activeLinks: activeGuestLinks,
+      },
+      remaining: {
+        perMinute: Math.max(0, tier.shortenPerMinute - usage.perMinute),
+        perHour: Math.max(0, tier.shortenPerHour - usage.perHour),
+        perDay: Math.max(0, tier.shortenPerDay - usage.perDay),
+        activeLinks:
+          tier.maxActiveLinks !== null && activeGuestLinks !== null
+            ? Math.max(0, tier.maxActiveLinks - activeGuestLinks)
+            : null,
+      },
+      features: {
+        advancedOptions: identity.isAuthenticated,
+        customAlias: identity.isAuthenticated,
+        passwordProtection: identity.isAuthenticated,
+        maxClicks: identity.isAuthenticated,
+        tags: identity.isAuthenticated,
+        bulkUpload: identity.isAuthenticated,
+        aiTools: identity.isAuthenticated,
       },
     });
   } catch (err) {

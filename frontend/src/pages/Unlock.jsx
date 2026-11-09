@@ -57,7 +57,7 @@ export default function Unlock({ theme, onToggleTheme, addToast }) {
 
   return (
     <div className={styles.container}>
-      <AppHeader theme={theme} onToggleTheme={onToggleTheme} />
+      <AppHeader theme={theme} onToggleTheme={onToggleTheme} hideSearch={true} />
 
       {/* ── Main Content ───────────────────────────── */}
       <main className={styles.main}>

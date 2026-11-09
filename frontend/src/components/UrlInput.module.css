@@ -160,6 +160,35 @@
 .footerHint {
   text-align: center;
   margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.guestLimitNote {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  line-height: 1.4;
+}
+
+.guestLimitNote strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+:global([data-theme='light']) .guestLimitNote {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.2);
+  color: #475569;
+}
+
+:global([data-theme='light']) .guestLimitNote strong {
+  color: #1e293b;
 }
 
 .shortcut {

@@ -5,7 +5,7 @@ import styles from './UrlInput.module.css';
 /**
  * UrlInput — A form-like UI for entering long URL, custom alias, password, expiry, and max clicks.
  */
-export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isHero = false }) {
+export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isHero = false, rateLimits = null }) {
   const [url, setUrl] = useState('');
   const [alias, setAlias] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +21,10 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
   const [isSuggestingAliases, setIsSuggestingAliases] = useState(false);
   const inputRef = useRef(null);
 
+  const maxExpiryDays = isSignedIn
+    ? (rateLimits?.limits?.maxExpiryDays || 365)
+    : (rateLimits?.limits?.maxExpiryDays || 7);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -28,8 +32,15 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
   useEffect(() => {
     if (!isSignedIn) {
       setShowAdvanced(false);
+      setExpiresInDays((prev) => {
+        const num = parseInt(prev, 10);
+        if (!isNaN(num) && num > maxExpiryDays) {
+          return String(maxExpiryDays);
+        }
+        return prev;
+      });
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, maxExpiryDays]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -56,8 +67,11 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
       isValid = false;
     }
 
-    if (!expiresInDays) {
-      newErrors.expiresInDays = 'Please enter an expiry time (1-365).';
+    const expNum = parseInt(expiresInDays, 10);
+    if (!expiresInDays || isNaN(expNum) || expNum < 1 || expNum > maxExpiryDays) {
+      newErrors.expiresInDays = isSignedIn
+        ? `Please enter an expiry time (1-${maxExpiryDays}).`
+        : `Guest links support 1-${maxExpiryDays} days expiry. Sign in for up to 365 days.`;
       isValid = false;
     }
 
@@ -246,6 +260,7 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
       <div className={styles.fieldGroup}>
         <label htmlFor="expiry-input" className={styles.label}>
           Expiry in Days <span className={styles.req}>*</span>
+          {!isSignedIn && <span className={styles.opt}>(Max {maxExpiryDays} days · Sign in for 365)</span>}
         </label>
         <div className={`${styles.inputWrapper} ${errors.expiresInDays ? styles.hasError : ''}`}>
           <span className={styles.icon}>⏳</span>
@@ -253,13 +268,13 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
             id="expiry-input"
             type="number"
             min="1"
-            max="365"
+            max={maxExpiryDays}
             className={styles.input}
             placeholder="e.g. 7"
             value={expiresInDays}
             onChange={(e) => {
               let val = parseInt(e.target.value, 10);
-              if (val > 365) val = 365;
+              if (val > maxExpiryDays) val = maxExpiryDays;
               if (val < 1) val = 1;
               setExpiresInDays(isNaN(val) ? '' : val.toString());
               if (errors.expiresInDays) setErrors((prev) => ({ ...prev, expiresInDays: null }));
@@ -470,6 +485,15 @@ export default function UrlInput({ onShorten, isLoading, isSignedIn = false, isH
         <span className={styles.shortcut}>
           Press <kbd>Enter</kbd> to shorten
         </span>
+        {!isSignedIn && (
+          <div className={styles.guestLimitNote}>
+            Guest limits: <strong>{rateLimits?.remaining?.perHour ?? 5}/{rateLimits?.limits?.perHour ?? 5}</strong>/hr
+            {' · '}
+            <strong>{rateLimits?.remaining?.perDay ?? 10}/{rateLimits?.limits?.perDay ?? 10}</strong>/day
+            {' · '}
+            Max <strong>{rateLimits?.limits?.maxActiveLinks ?? 10}</strong> saved · Sign in for 100/hr &amp; Pro tools
+          </div>
+        )}
       </div>
     </form>
   );

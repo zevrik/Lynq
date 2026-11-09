@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { SignInButton } from '@clerk/clerk-react';
 import { useLynqAuth } from '../context/AuthContext.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
@@ -10,9 +10,12 @@ import styles from './AppHeader.module.css';
  * Shared across Home, Stats, Preview, Unlock, and 404 pages.
  * Guarantees pixel-perfect matching width (1120px) and controls everywhere.
  */
-export default function AppHeader({ theme, onToggleTheme }) {
+export default function AppHeader({ theme, onToggleTheme, hideSearch = false }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isSignedIn, hasClerk } = useLynqAuth();
+  const isUnlockPage = location.pathname.startsWith('/unlock');
+  const showSearch = isSignedIn && !hideSearch && !isUnlockPage;
 
   const handleLogoClick = () => {
     navigate('/');
@@ -60,7 +63,7 @@ export default function AppHeader({ theme, onToggleTheme }) {
             </SignInButton>
           )}
 
-          {isSignedIn && (
+          {showSearch && (
             <button
               type="button"
               className={styles.cmdPaletteBtn}

@@ -21,7 +21,11 @@ export const handleBulkShorten = async (req, res, next) => {
         .json({ success: false, error: "Maximum 100 URLs per batch." });
     }
 
-    const results = await bulkShortenUrls(rows, deviceId);
+    const results = await bulkShortenUrls(
+      rows,
+      req.userId ? null : deviceId || null,
+      req.userId || null,
+    );
     return res.status(200).json({ success: true, results });
   } catch (err) {
     next(err);

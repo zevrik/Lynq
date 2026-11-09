@@ -13,6 +13,8 @@ export default function CommandPalette({
   currentTheme = 'dark',
   onFocusNewLink,
   onOpenPortfolio,
+  onOpenSettings,
+  onOpenLinks,
   currentActiveCode,
   onExportCsv,
   addToast,
@@ -47,6 +49,13 @@ export default function CommandPalette({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Auto-scroll keyboard-highlighted item into view
+  useEffect(() => {
+    if (!isOpen || !listRef.current) return;
+    const selectedEl = listRef.current.querySelector('[data-selected="true"]');
+    selectedEl?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex, isOpen, query]);
 
   // System commands available in palette
   const systemCommands = useMemo(() => {
@@ -92,7 +101,7 @@ export default function CommandPalette({
         icon: '⚙️',
         shortcut: 'U',
         action: () => {
-          window.dispatchEvent(new CustomEvent('lynq-open-settings'));
+          onOpenSettings?.();
           onClose();
         },
       },
@@ -103,7 +112,7 @@ export default function CommandPalette({
         icon: '🔗',
         shortcut: 'L',
         action: () => {
-          window.dispatchEvent(new CustomEvent('lynq-open-links'));
+          onOpenLinks?.();
           onClose();
         },
       },
@@ -125,30 +134,53 @@ export default function CommandPalette({
     }
 
     return list;
-  }, [currentTheme, onToggleTheme, onFocusNewLink, onOpenPortfolio, currentActiveCode, onExportCsv, addToast, onClose]);
+  }, [currentTheme, onToggleTheme, onFocusNewLink, onOpenPortfolio, onOpenSettings, onOpenLinks, currentActiveCode, onExportCsv, addToast, onClose]);
 
-  // Filtered results (commands + links)
+  // Filtered results (commands + all user-generated links with multi-token relevance ranking)
   const { filteredCommands, filteredLinks, allItems } = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
     const matchedCommands = systemCommands.filter((cmd) => {
-      if (!q) return true;
-      return cmd.title.toLowerCase().includes(q);
+      if (tokens.length === 0) return true;
+      const lowerTitle = cmd.title.toLowerCase();
+      return tokens.every((tok) => lowerTitle.includes(tok));
     });
 
-    const matchedLinks = recentLinks.filter((link) => {
-      if (!q) return true;
-      const title = (link.title || '').toLowerCase();
-      const code = (link.shortCode || '').toLowerCase();
-      const original = (link.originalUrl || '').toLowerCase();
-      const tags = (link.tags || '').toLowerCase();
-      return (
-        title.includes(q) ||
-        code.includes(q) ||
-        original.includes(q) ||
-        tags.includes(q)
-      );
-    });
+    let matchedLinks;
+    if (tokens.length === 0) {
+      matchedLinks = recentLinks;
+    } else {
+      const scored = [];
+      for (const link of recentLinks) {
+        const title = (link.title || '').toLowerCase();
+        const code = (link.shortCode || '').toLowerCase();
+        const shortUrl = (link.shortUrl || '').toLowerCase();
+        const original = (link.originalUrl || '').toLowerCase();
+        const tags = (link.tags || '').toLowerCase();
+        const corpus = `${code} ${title} ${tags} ${original} ${shortUrl}`;
+
+        let score = 0;
+        let matchesAll = true;
+        for (const tok of tokens) {
+          if (!corpus.includes(tok)) {
+            matchesAll = false;
+            break;
+          }
+          if (code === tok) score += 100;
+          else if (code.startsWith(tok)) score += 65;
+          else if (code.includes(tok)) score += 45;
+          if (title.includes(tok)) score += title.startsWith(tok) ? 35 : 20;
+          if (tags.includes(tok)) score += 30;
+          if (original.includes(tok) || shortUrl.includes(tok)) score += 10;
+        }
+        if (matchesAll) {
+          scored.push({ link, score });
+        }
+      }
+      scored.sort((a, b) => b.score - a.score);
+      matchedLinks = scored.map((entry) => entry.link);
+    }
 
     const combined = [
       ...matchedCommands,
@@ -225,6 +257,21 @@ export default function CommandPalette({
             autoComplete="off"
             spellCheck="false"
           />
+          {query && (
+            <button
+              type="button"
+              className={styles.clearQueryBtn}
+              onClick={() => {
+                setQuery('');
+                setSelectedIndex(0);
+                inputRef.current?.focus();
+              }}
+              aria-label="Clear search query"
+              title="Clear search"
+            >
+              ×
+            </button>
+          )}
           <kbd className={styles.escBadge} onClick={onClose}>ESC</kbd>
         </div>
 
@@ -247,6 +294,7 @@ export default function CommandPalette({
                     return (
                       <div
                         key={cmd.id}
+                        data-selected={isSelected ? 'true' : 'false'}
                         className={`${styles.item} ${isSelected ? styles.itemSelected : ''}`}
                         onClick={() => handleSelectItem(cmd)}
                         onMouseEnter={() => setSelectedIndex(itemIndex)}
@@ -264,16 +312,21 @@ export default function CommandPalette({
                 </div>
               )}
 
-              {/* Recent Links section */}
+              {/* User Links section */}
               {filteredLinks.length > 0 && (
                 <div className={styles.group}>
-                  <div className={styles.groupLabel}>Recent Links ({filteredLinks.length})</div>
+                  <div className={styles.groupLabel}>
+                    {query.trim()
+                      ? `Matching Links (${filteredLinks.length}/${recentLinks.length})`
+                      : `Your Links (${filteredLinks.length})`}
+                  </div>
                   {filteredLinks.map((link) => {
                     const itemIndex = allItems.findIndex((it) => it.id === `link-${link.shortCode}`);
                     const isSelected = itemIndex === selectedIndex;
                     return (
                       <div
                         key={link.shortCode}
+                        data-selected={isSelected ? 'true' : 'false'}
                         className={`${styles.item} ${styles.linkItem} ${isSelected ? styles.itemSelected : ''}`}
                         onClick={() => handleSelectItem({ ...link, type: 'link' })}
                         onMouseEnter={() => setSelectedIndex(itemIndex)}
@@ -282,7 +335,7 @@ export default function CommandPalette({
                         <div className={styles.itemText}>
                           <div className={styles.linkHeader}>
                             <span className={styles.itemTitle}>{link.title || link.shortCode}</span>
-                            <span className={styles.linkCode}>lynq.app/{link.shortCode}</span>
+                            <span className={styles.linkCode}>/{link.shortCode}</span>
                           </div>
                           <span className={styles.linkDest}>
                             {link.originalUrl?.replace(/^https?:\/\//, '').slice(0, 55)}

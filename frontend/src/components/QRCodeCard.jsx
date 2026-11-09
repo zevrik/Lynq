@@ -12,6 +12,7 @@ export default function QRCodeCard({ url }) {
   const [showSettings, setShowSettings] = useState(false);
   
   const fileInputRef = useRef(null);
+  const cardRef = useRef(null);
 
   if (!url) return null;
 
@@ -52,7 +53,7 @@ export default function QRCodeCard({ url }) {
   };
 
   return (
-    <div className={styles.card}>
+    <div ref={cardRef} className={styles.card}>
       <div className={styles.header}>
         <span className={styles.icon}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -95,6 +96,8 @@ export default function QRCodeCard({ url }) {
             label="Choose QR foreground color"
             value={fgColor}
             onChange={setFgColor}
+            placement="right"
+            anchorContainerRef={cardRef}
           />
         </div>
         <div className={styles.settingGroup}>
@@ -113,6 +116,8 @@ export default function QRCodeCard({ url }) {
             label="Choose QR background color"
             value={bgColor}
             dimmed={isTransparentBg}
+            placement="right"
+            anchorContainerRef={cardRef}
             onChange={(nextColor) => {
               setBgColor(nextColor);
               setIsTransparentBg(false);

@@ -11,14 +11,33 @@ const getDeviceId = () => {
   return deviceId;
 };
 
+export const peekGuestDeviceId = () => {
+  try {
+    return localStorage.getItem("lynq_device_id") || null;
+  } catch {
+    return null;
+  }
+};
+
+export const clearGuestLocalInfo = () => {
+  try {
+    localStorage.removeItem("lynq-recent");
+    localStorage.removeItem("lynq_device_id");
+  } catch {
+    // ignore storage errors
+  }
+};
+
 let authTokenGetter = null;
+let isUserAuthenticated = false;
 
 /**
  * Configure dynamic JWT getter (provided by Clerk useAuth)
- * @param {Function} getter
+ * @param {Function|null} getter
  */
 export const setAuthTokenGetter = (getter) => {
   authTokenGetter = getter;
+  isUserAuthenticated = typeof getter === "function";
 };
 
 /**
@@ -62,7 +81,8 @@ export const shortenUrl = async (
   tags = null,
   routingRules = null,
 ) => {
-  const deviceId = getDeviceId();
+  // Only track/send guest deviceId when NOT logged in
+  const deviceId = isUserAuthenticated ? null : getDeviceId();
   const { data } = await api.post("/shorten", {
     url,
     customAlias,
@@ -183,13 +203,12 @@ export const checkStatus = async (shortCode) => {
 };
 
 /**
- * Bulk shorten a list of URL rows.
+ * Bulk shorten a list of URL rows (Authenticated users only).
  * @param {Array<{url, title?, alias?}>} rows
  * @returns {Promise<object>}
  */
 export const bulkShortenUrls = async (rows) => {
-  const deviceId = getDeviceId();
-  const { data } = await api.post("/bulk-shorten", { rows, deviceId });
+  const { data } = await api.post("/bulk-shorten", { rows });
   return data; // { success, results }
 };
 
@@ -247,13 +266,25 @@ export const downloadAnalyticsCsv = (shortCode) => {
 };
 
 /**
- * Claim anonymous guest links to the signed-in user's account.
- * @param {Array<{shortCode: string, editToken: string}>} links
+ * Claim anonymous guest links and device links to the signed-in user's account.
+ * @param {Array<{shortCode: string, editToken?: string}>} links
+ * @param {string|null} deviceId
  * @returns {Promise<object>}
  */
-export const claimUserLinks = async (links) => {
-  const { data } = await api.post("/user/claim-links", { links });
+export const claimUserLinks = async (links = [], deviceId = null) => {
+  const { data } = await api.post("/user/claim-links", { links, deviceId });
   return data; // { success, claimedCount, claimedCodes }
+};
+
+/**
+ * Fetch current rate limits and remaining quota (per-device for guests, per-user when logged in).
+ * @returns {Promise<object>}
+ */
+export const getRateLimits = async () => {
+  const guestDeviceId = isUserAuthenticated ? null : peekGuestDeviceId();
+  const headers = guestDeviceId ? { "x-device-id": guestDeviceId } : undefined;
+  const { data } = await api.get("/limits", { headers });
+  return data;
 };
 
 /**
