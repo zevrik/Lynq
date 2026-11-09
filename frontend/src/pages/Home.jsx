@@ -676,7 +676,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
                     <div className={styles.resultSection} id="result-section">
                       <div className={styles.resultMain}>
                         <ResultCard result={result} onCopy={handleCopy} />
-                        <Analytics data={result} />
+                        <Analytics data={result} theme={theme} />
                       </div>
                       <QRCodeCard url={result.shortUrl} />
                     </div>
@@ -774,7 +774,7 @@ export default function Home({ theme, onToggleTheme, addToast }) {
               <div className={styles.resultSection} id="result-section">
                 <div className={styles.resultMain}>
                   <ResultCard result={result} onCopy={handleCopy} />
-                  <Analytics data={result} />
+                  <Analytics data={result} theme={theme} />
                 </div>
                 <QRCodeCard url={result.shortUrl} />
               </div>

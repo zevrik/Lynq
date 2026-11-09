@@ -30,6 +30,12 @@
   animation: slideDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:global([data-theme='light']) .dialog {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(99, 102, 241, 0.12);
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -178,6 +184,11 @@
   border-radius: 4px;
 }
 
+:global([data-theme='light']) .linkCode {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.12);
+}
+
 .linkDest {
   font-size: 12px;
   color: var(--text-muted, rgba(255, 255, 255, 0.45));
@@ -281,4 +292,8 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--color-primary-light, #818cf8);
+}
+
+:global([data-theme='light']) .lynqBrand {
+  color: #4f46e5;
 }

@@ -133,6 +133,7 @@ export function getMarkerColorByCount(count, maxCount = 1) {
   if (count <= 2) {
     return {
       hex: "#38bdf8", // Electric Sky Blue
+      lightHex: "#0284c7",
       rgb: [56, 189, 248],
       tier: "Low",
       glow: "rgba(56, 189, 248, 0.4)",
@@ -142,6 +143,7 @@ export function getMarkerColorByCount(count, maxCount = 1) {
   if (ratio < 0.35 || count < 6) {
     return {
       hex: "#818cf8", // Indigo
+      lightHex: "#4f46e5",
       rgb: [129, 140, 248],
       tier: "Moderate",
       glow: "rgba(129, 140, 248, 0.45)",
@@ -151,6 +153,7 @@ export function getMarkerColorByCount(count, maxCount = 1) {
   if (ratio < 0.7 || count < 15) {
     return {
       hex: "#ec4899", // Vivid Magenta
+      lightHex: "#db2777",
       rgb: [236, 72, 153],
       tier: "High",
       glow: "rgba(236, 72, 153, 0.5)",
@@ -159,6 +162,7 @@ export function getMarkerColorByCount(count, maxCount = 1) {
 
   return {
     hex: "#f59e0b", // Radiant Amber Flame
+    lightHex: "#d97706",
     rgb: [245, 158, 11],
     tier: "Peak",
     glow: "rgba(245, 158, 11, 0.6)",

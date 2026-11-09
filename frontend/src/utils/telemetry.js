@@ -38,6 +38,7 @@ export function getReferrerMeta(rawReferrer) {
       category: "Direct",
       icon: "🎯",
       badgeColor: "#6366f1",
+      lightBadgeColor: "#4f46e5",
     };
   }
 
@@ -53,6 +54,7 @@ export function getReferrerMeta(rawReferrer) {
       category: "Search",
       icon: "🔍",
       badgeColor: "#10b981",
+      lightBadgeColor: "#047857",
     };
   }
 
@@ -73,6 +75,7 @@ export function getReferrerMeta(rawReferrer) {
       category: "Social",
       icon: "💬",
       badgeColor: "#ec4899",
+      lightBadgeColor: "#db2777",
     };
   }
 
@@ -87,6 +90,7 @@ export function getReferrerMeta(rawReferrer) {
       category: "Developer",
       icon: "⚡",
       badgeColor: "#8b5cf6",
+      lightBadgeColor: "#6d28d9",
     };
   }
 
@@ -95,6 +99,7 @@ export function getReferrerMeta(rawReferrer) {
     category: "Referral",
     icon: "🌐",
     badgeColor: "#06b6d4",
+    lightBadgeColor: "#0e7490",
   };
 }
 

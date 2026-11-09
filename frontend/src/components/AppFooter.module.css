@@ -1,12 +1,19 @@
 /* ── Universal Multi-Column AppFooter ────────────────────────── */
 .siteFooter {
   width: 100%;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
   background: rgba(10, 10, 20, 0.85);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 60px 20px 32px;
   margin-top: 48px;
   box-sizing: border-box;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+:global([data-theme='light']) .siteFooter {
+  background: rgba(255, 255, 255, 0.88);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .footerGrid {
@@ -16,8 +23,12 @@
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
   box-sizing: border-box;
+}
+
+:global([data-theme='light']) .footerGrid {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
 .footerColBrand {
@@ -56,7 +67,7 @@
 
 .footerDesc {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   line-height: 1.6;
   margin: 0;
   max-width: 320px;
@@ -71,6 +82,10 @@
   color: #22c55e;
 }
 
+:global([data-theme='light']) .footerStatus {
+  color: #059669;
+}
+
 .statusDot {
   width: 7px;
   height: 7px;
@@ -78,6 +93,11 @@
   background: #22c55e;
   box-shadow: 0 0 8px #22c55e;
   display: inline-block;
+}
+
+:global([data-theme='light']) .statusDot {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.45);
 }
 
 .footerCol {
@@ -91,19 +111,23 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   margin: 0;
 }
 
 .footerCol a {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .footerCol a:hover {
   color: #818cf8;
+}
+
+:global([data-theme='light']) .footerCol a:hover {
+  color: #4f46e5;
 }
 
 .footerBottom {
@@ -114,7 +138,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   flex-wrap: wrap;
   gap: 12px;
   box-sizing: border-box;
@@ -133,7 +157,7 @@
 }
 
 .footerLinks span:hover {
-  color: #94a3b8;
+  color: var(--text-primary, #f1f5f9);
 }
 
 @media (max-width: 840px) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { SignInButton } from '@clerk/clerk-react';
 import { getPlatformStats } from '../services/api.js';
+import CountryFlag from './CountryFlag.jsx';
 import styles from './LandingSections.module.css';
 
 export default function LandingSections({ hasClerk, onScrollToInput }) {
@@ -114,10 +115,10 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
           <div className={styles.bentoCard}>
             <div className={styles.bentoVisual}>
               <div className={styles.mockSecurityBadge}>
-                <span className={styles.shieldIcon}>🛡️</span>
+                <span className={styles.shieldIcon} aria-hidden="true">🛡️</span>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#34d399' }}>Verified Safe</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>Gemini AI Phishing Guard</div>
+                  <div className={styles.securityTitle}>Verified Safe</div>
+                  <div className={styles.securitySub}>Gemini AI Phishing Guard</div>
                 </div>
               </div>
             </div>
@@ -242,20 +243,46 @@ export default function LandingSections({ hasClerk, onScrollToInput }) {
                 </div>
                 <div className={styles.dashMetricCard}>
                   <div className={styles.dashMetricLabel}>Top Country</div>
-                  <div className={styles.dashMetricVal}>🇺🇸 United States</div>
+                  <div className={styles.dashMetricVal}>
+                    <span className={styles.dashValWithIcon}>
+                      <CountryFlag countryCode="US" size="md" />
+                      <span>United States</span>
+                    </span>
+                  </div>
                   <div className={styles.dashMetricTrend}>18,420 clicks</div>
                 </div>
                 <div className={styles.dashMetricCard}>
                   <div className={styles.dashMetricLabel}>Top Channel</div>
-                  <div className={styles.dashMetricVal}>🐦 Twitter / X</div>
+                  <div className={styles.dashMetricVal}>
+                    <span className={styles.dashValWithIcon}>
+                      <span className={styles.channelIconBadge} aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                      </span>
+                      <span>Twitter / X</span>
+                    </span>
+                  </div>
                   <div className={styles.dashMetricTrend}>42% traffic share</div>
                 </div>
               </div>
 
               <div className={styles.dashMockLiveRow}>
-                <span className={styles.liveTag}>⚡ Live Pulse</span>
-                <span>New click from <strong>🇬🇧 London, United Kingdom</strong> via Chrome on macOS</span>
-                <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>just now</span>
+                <span className={styles.liveTag}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>Live Pulse</span>
+                </span>
+                <span className={styles.liveRowText}>
+                  New click from{' '}
+                  <span className={styles.liveLocationBadge}>
+                    <CountryFlag countryCode="GB" size="sm" />
+                    <strong>London, United Kingdom</strong>
+                  </span>{' '}
+                  via Chrome on macOS
+                </span>
+                <span className={styles.liveRowTime}>just now</span>
               </div>
             </div>
           </div>

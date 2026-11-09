@@ -12,6 +12,9 @@
   --color-primary-dark:   #4f46e5;
   --color-secondary:      #8b5cf6;
   --color-accent:         #06b6d4;
+  --primary:              #6366f1;
+  --accent:               #6366f1;
+  --accent-2:             #8b5cf6;
 
   /* Gradients */
   --grad-brand:  linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -22,19 +25,22 @@
   --bg-base:        #0a0a14;
   --bg-surface:     #12121f;
   --bg-elevated:    #1a1a2e;
+  --bg-card:        rgba(18, 18, 31, 0.72);
   --bg-glass:       rgba(255, 255, 255, 0.05);
   --bg-glass-hover: rgba(255, 255, 255, 0.09);
 
   --text-primary:   #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-muted:     #475569;
+  --text-muted:     #64748b;
 
   --border:         rgba(255, 255, 255, 0.08);
+  --border-color:   rgba(255, 255, 255, 0.08);
   --border-focus:   rgba(99, 102, 241, 0.6);
 
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.4);
-  --shadow-lg:  0 8px 40px rgba(0,0,0,0.5);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg:   0 8px 40px rgba(0,0,0,0.5);
+  --shadow-card: 0 12px 36px rgba(0,0,0,0.38);
   --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.25);
 
   /* Surfaces */
@@ -57,20 +63,23 @@
   --bg-base:        #f8fafc;
   --bg-surface:     #ffffff;
   --bg-elevated:    #f1f5f9;
-  --bg-glass:       rgba(255, 255, 255, 0.7);
-  --bg-glass-hover: rgba(255, 255, 255, 0.9);
+  --bg-card:        rgba(255, 255, 255, 0.92);
+  --bg-glass:       rgba(255, 255, 255, 0.78);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
 
   --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted:     #94a3b8;
+  --text-muted:     #64748b;
 
-  --border:         rgba(0, 0, 0, 0.08);
+  --border:         rgba(15, 23, 42, 0.08);
+  --border-color:   rgba(15, 23, 42, 0.08);
   --border-focus:   rgba(99, 102, 241, 0.5);
 
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.10);
-  --shadow-lg:  0 8px 40px rgba(0,0,0,0.12);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.18);
+  --shadow-sm:   0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md:   0 4px 16px rgba(15, 23, 42, 0.07);
+  --shadow-lg:   0 8px 32px rgba(15, 23, 42, 0.09);
+  --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.12);
 
   --grad-hero: linear-gradient(135deg, #ede9fe 0%, #e0f2fe 100%);
 }
@@ -426,6 +435,12 @@ a[href*="clerk.com"] {
   font-weight: 600 !important;
 }
 
+[data-theme='light'] .cl-userProfile-root .cl-navbarButton[data-active='true'],
+[data-theme='light'] .cl-userProfile-root .cl-navbarButton[aria-selected='true'],
+[data-theme='light'] .cl-userProfile-root .cl-navbarButton__active {
+  color: #4f46e5 !important;
+}
+
 /* UserProfile Right Content Area without scrollbar */
 .cl-userProfile-root,
 .cl-userProfile-root .cl-card,
@@ -633,6 +648,19 @@ a[href*="clerk.com"] {
 .cl-userProfile-root button[class*="Action"]:hover,
 .cl-userProfile-root .cl-profileSectionPrimaryButton:hover {
   color: #a5b4fc !important;
+}
+
+[data-theme='light'] .cl-userProfile-root button[class*="action"],
+[data-theme='light'] .cl-userProfile-root button[class*="Action"],
+[data-theme='light'] .cl-userProfile-root .cl-profileSectionPrimaryButton,
+[data-theme='light'] .cl-userProfile-root a[class*="action"] {
+  color: #4f46e5 !important;
+}
+
+[data-theme='light'] .cl-userProfile-root button[class*="action"]:hover,
+[data-theme='light'] .cl-userProfile-root button[class*="Action"]:hover,
+[data-theme='light'] .cl-userProfile-root .cl-profileSectionPrimaryButton:hover {
+  color: #4338ca !important;
 }
 
 /* Avatar Initials */

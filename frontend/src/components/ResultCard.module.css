@@ -11,6 +11,12 @@
   overflow: hidden;
 }
 
+:global([data-theme='light']) .card {
+  background: var(--bg-card);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-card);
+}
+
 .card::before {
   content: '';
   position: absolute;
@@ -32,6 +38,12 @@
   border-radius: var(--radius-sm);
   margin-bottom: 12px;
   width: 100%;
+}
+
+:global([data-theme='light']) .existingBadge {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(217, 119, 6, 0.32);
+  color: #b45309;
 }
 
 .label {
@@ -64,6 +76,14 @@
 }
 
 .shortUrl:hover { color: var(--color-secondary); text-decoration: underline; }
+
+:global([data-theme='light']) .shortUrl {
+  color: #4f46e5;
+}
+
+:global([data-theme='light']) .shortUrl:hover {
+  color: #4338ca;
+}
 
 .actions {
   display: flex;
@@ -115,6 +135,18 @@
   color: var(--color-primary-light);
   background: var(--bg-glass-hover);
   transform: translateY(-1px);
+}
+
+:global([data-theme='light']) .openBtn {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #475569;
+}
+
+:global([data-theme='light']) .openBtn:hover {
+  color: #4f46e5;
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.35);
 }
 
 .originalUrl {

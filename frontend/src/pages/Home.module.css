@@ -128,6 +128,12 @@
   letter-spacing: 0.02em;
 }
 
+:global([data-theme='light']) .heroLeftBadge {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.22);
+  color: #4f46e5;
+}
+
 .heroTitle {
   font-size: clamp(36px, 4.8vw, 56px);
   font-weight: 900;
@@ -139,6 +145,13 @@
 
 .heroTitleGradient {
   background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+:global([data-theme='light']) .heroTitleGradient {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #0284c7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -202,6 +215,19 @@
   border-color: rgba(99, 102, 241, 0.4);
   transform: translateY(-2px);
   color: #818cf8;
+}
+
+:global([data-theme='light']) .heroSecondaryBtn {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+:global([data-theme='light']) .heroSecondaryBtn:hover {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
 .heroTrustBullets {
@@ -369,6 +395,10 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   position: relative;
+}
+
+:global([data-theme='light']) .pageSlider {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .sliderBtn {
@@ -551,6 +581,17 @@
   background: rgba(239, 68, 68, 0.24);
   border-color: rgba(239, 68, 68, 0.55);
   transform: translateY(-1px);
+}
+
+:global([data-theme='light']) .userSettingSignOutBtn {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+:global([data-theme='light']) .userSettingSignOutBtn:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(220, 38, 38, 0.5);
 }
 
 @media (max-width: 640px) {

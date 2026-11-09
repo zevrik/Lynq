@@ -10,6 +10,11 @@
   animation: fadeIn 0.4s var(--ease-out);
 }
 
+:global([data-theme='light']) .formCard {
+  box-shadow: var(--shadow-card);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
 .fieldGroup {
   display: flex;
   flex-direction: column;
@@ -58,9 +63,18 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+:global([data-theme='light']) .inputWrapper {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
 .inputWrapper:focus-within {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+:global([data-theme='light']) .inputWrapper:focus-within {
+  background: #ffffff;
 }
 
 .hasError {
@@ -218,6 +232,11 @@
 .advancedToggle:hover {
   background: var(--bg-glass);
   color: var(--color-primary-light);
+}
+
+:global([data-theme='light']) .advancedToggle:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
 }
 
 .advancedSection {
@@ -414,6 +433,11 @@
   letter-spacing: 0.05em;
 }
 
+:global([data-theme='light']) .smartBadge {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+}
+
 .smartContent {
   padding: 16px;
   border-top: 1px solid rgba(99, 102, 241, 0.15);
@@ -485,6 +509,12 @@
   transition: all 0.2s;
 }
 
+:global([data-theme='light']) .addVariantBtn {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #4f46e5;
+}
+
 .addVariantBtn:hover {
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.4);
@@ -512,6 +542,16 @@
 
 .heroFormCard .inputWrapper {
   padding: 0 14px;
+}
+
+:global([data-theme='light']) .heroFormCard .inputWrapper {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:global([data-theme='light']) .heroFormCard .inputWrapper:focus-within {
+  background: #ffffff;
+  border-color: var(--border-focus);
 }
 
 .heroFormCard .input {

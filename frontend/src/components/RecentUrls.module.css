@@ -8,6 +8,12 @@
   animation: fadeIn 0.35s ease forwards;
 }
 
+:global([data-theme='light']) .container {
+  background: var(--bg-card);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-card);
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -35,6 +41,11 @@
   padding: 1px 6px;
   border-radius: var(--radius-full);
   margin-left: 2px;
+}
+
+:global([data-theme='light']) .countBadge {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
 }
 
 .headerActions {
@@ -67,6 +78,11 @@
   outline: none;
 }
 
+:global([data-theme='light']) .searchInput {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
 .searchInput:focus {
   border-color: var(--color-primary-light);
   width: 220px;
@@ -95,6 +111,11 @@
 .searchClearBtn:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.08);
+}
+
+:global([data-theme='light']) .searchClearBtn:hover {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.08);
 }
 
 .clearBtn {
@@ -162,6 +183,10 @@
   flex-shrink: 0;
 }
 
+:global([data-theme='light']) .shortCode {
+  color: #4f46e5;
+}
+
 .itemInfo {
   display: flex;
   flex-direction: column;
@@ -218,6 +243,12 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
+}
+
+:global([data-theme='light']) .tagBadge {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .itemWrapper {
@@ -305,13 +336,19 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--text-primary);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   font-size: 13px;
   font-family: var(--font);
   outline: none;
   transition: border-color 0.2s;
+}
+
+:global([data-theme='light']) .editInput {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.16);
+  color: #0f172a;
 }
 
 .editInput:focus {
@@ -342,6 +379,11 @@
 .cancelBtn {
   color: var(--text-muted);
   background: rgba(255, 255, 255, 0.05);
+}
+
+:global([data-theme='light']) .cancelBtn {
+  color: #475569;
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .cancelBtn:hover {

@@ -22,6 +22,9 @@ import styles from './Stats.module.css';
 export default function Stats({ theme, onToggleTheme, addToast }) {
   const { shortCode } = useParams();
   const navigate = useNavigate();
+  const isLight = theme
+    ? theme === 'light'
+    : (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -295,7 +298,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 title="Click to copy short URL"
               >
                 <span className={styles.shortUrlText}>{data.shortUrl}</span>
-                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                <span className={styles.copyLabel}>
                   {copied ? '✓ Copied' : '📋 Copy'}
                 </span>
               </button>
@@ -403,7 +406,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 {' '}via <strong>{liveClick.browser}</strong> on {liveClick.device}
               </span>
             </div>
-            <span style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600 }}>Just now</span>
+            <span className={styles.tickerTime}>Just now</span>
           </div>
         )}
 
@@ -509,7 +512,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                             <CountryFlag countryCode={r.country} size="sm" />
                             <span>{regionName}</span>
                           </div>
-                          <span className={styles.locationClicks} style={{ color: colorMeta.hex }}>
+                          <span className={styles.locationClicks} style={{ color: isLight ? colorMeta.lightHex : colorMeta.hex }}>
                             {r.count} ({pct}%)
                           </span>
                         </div>
@@ -526,7 +529,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                     );
                   })
                 ) : (
-                  <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  <div className={styles.emptyMsg} style={{ padding: '20px 0', textAlign: 'center' }}>
                     No regional visit data logged yet.
                   </div>
                 )}
@@ -569,7 +572,11 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 15, right: 15, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255,255,255,0.06)'}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="time"
                     tickFormatter={(time) => {
@@ -578,23 +585,27 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                         ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
                     }}
-                    stroke="rgba(255,255,255,0.3)"
+                    stroke={isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255,255,255,0.3)'}
+                    tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
                     fontSize={11}
                     tickMargin={10}
                   />
                   <YAxis
                     allowDecimals={false}
-                    stroke="rgba(255,255,255,0.3)"
+                    stroke={isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255,255,255,0.3)'}
+                    tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
                     fontSize={11}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                      border: '1px solid rgba(255,255,255,0.12)',
+                      backgroundColor: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.95)',
+                      border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,0.12)',
                       borderRadius: '10px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                      boxShadow: isLight ? '0 8px 24px rgba(15, 23, 42, 0.12)' : '0 8px 24px rgba(0,0,0,0.6)',
+                      color: isLight ? '#0f172a' : '#f8fafc',
                       fontSize: '12px',
                     }}
+                    labelStyle={{ color: isLight ? '#475569' : '#94a3b8', marginBottom: '2px' }}
                     itemStyle={{ color: lineColor, fontWeight: 'bold' }}
                     labelFormatter={(time) =>
                       new Date(time).toLocaleString([], {
@@ -611,13 +622,13 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                     name={timelineMode === 'total' ? 'Total Visits' : 'Unique Visitors'}
                     stroke={lineColor}
                     strokeWidth={3}
-                    dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: '#0f172a' }}
-                    activeDot={{ r: 6, fill: '#fff' }}
+                    dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: isLight ? '#ffffff' : '#0f172a' }}
+                    activeDot={{ r: 6, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+              <div className={styles.emptyMsg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 No timeline records yet. Share your short link to populate this graph!
               </div>
             )}
@@ -659,7 +670,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                   );
                 })
               ) : (
-                <div style={{ color: '#94a3b8', fontSize: '13px' }}>No country data yet.</div>
+                <div className={styles.emptyMsg}>No country data yet.</div>
               )}
             </div>
           </div>
@@ -685,6 +696,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                         innerRadius={40}
                         outerRadius={65}
                         paddingAngle={4}
+                        stroke={isLight ? '#ffffff' : '#0f172a'}
                       >
                         {deviceData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -703,14 +715,14 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.color }} />
                           <span>{d.icon} {d.name}</span>
                         </div>
-                        <strong style={{ color: '#ffffff' }}>{pct}%</strong>
+                        <strong className={styles.devicePct}>{pct}%</strong>
                       </div>
                     );
                   })}
                 </div>
               </div>
             ) : (
-              <div style={{ color: '#94a3b8', fontSize: '13px' }}>No device data yet.</div>
+              <div className={styles.emptyMsg}>No device data yet.</div>
             )}
           </div>
         </div>
@@ -737,7 +749,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                           className={styles.sourceCat}
                           style={{
                             background: `${meta.badgeColor}20`,
-                            color: meta.badgeColor,
+                            color: isLight ? (meta.lightBadgeColor || meta.badgeColor) : meta.badgeColor,
                             border: `1px solid ${meta.badgeColor}40`,
                           }}
                         >
@@ -753,7 +765,7 @@ export default function Stats({ theme, onToggleTheme, addToast }) {
                 );
               })
             ) : (
-              <div style={{ color: '#94a3b8', fontSize: '13px' }}>No referral source data recorded yet.</div>
+              <div className={styles.emptyMsg}>No referral source data recorded yet.</div>
             )}
           </div>
         </div>

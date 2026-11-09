@@ -44,7 +44,10 @@ function StatBox({ label, value, icon, subtext }) {
   );
 }
 
-export default function Analytics({ data }) {
+export default function Analytics({ data, theme }) {
+  const isLight = theme
+    ? theme === 'light'
+    : (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
   const [timelineMode, setTimelineMode] = useState('total'); // 'total' | 'unique'
   const [liveClick, setLiveClick] = useState(null);
   const [liveConnected, setLiveConnected] = useState(false);
@@ -243,7 +246,11 @@ export default function Analytics({ data }) {
               <div className={styles.chartWrapper}>
                 <ResponsiveContainer width="100%" height={230}>
                   <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255,255,255,0.08)'}
+                      vertical={false}
+                    />
                     <XAxis 
                       dataKey="time" 
                       tickFormatter={(time) => {
@@ -252,23 +259,27 @@ export default function Analytics({ data }) {
                           ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                           : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
                       }}
-                      stroke="rgba(255,255,255,0.35)"
+                      stroke={isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255,255,255,0.35)'}
+                      tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
                       fontSize={11}
                       tickMargin={10}
                     />
                     <YAxis 
                       allowDecimals={false} 
-                      stroke="rgba(255,255,255,0.35)" 
+                      stroke={isLight ? 'rgba(15, 23, 42, 0.25)' : 'rgba(255,255,255,0.35)'}
+                      tick={{ fill: isLight ? '#475569' : '#94a3b8', fontSize: 11 }}
                       fontSize={11}
                     />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)', 
-                        border: '1px solid rgba(255,255,255,0.12)',
+                        backgroundColor: isLight ? '#ffffff' : 'rgba(15, 23, 42, 0.95)', 
+                        border: isLight ? '1px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255,255,255,0.12)',
                         borderRadius: '10px',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        boxShadow: isLight ? '0 8px 24px rgba(15, 23, 42, 0.12)' : '0 8px 24px rgba(0,0,0,0.6)',
+                        color: isLight ? '#0f172a' : '#f8fafc',
                         fontSize: '12px'
                       }}
+                      labelStyle={{ color: isLight ? '#475569' : '#94a3b8', marginBottom: '2px' }}
                       itemStyle={{ color: lineColor, fontWeight: 'bold' }}
                       labelFormatter={(time) => new Date(time).toLocaleString([], {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -280,8 +291,8 @@ export default function Analytics({ data }) {
                       name={timelineMode === 'total' ? 'Total Clicks' : 'Unique Clicks'}
                       stroke={lineColor} 
                       strokeWidth={3}
-                      dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: '#0f172a' }}
-                      activeDot={{ r: 6, fill: '#fff' }}
+                      dot={{ r: 4, fill: lineColor, strokeWidth: 2, stroke: isLight ? '#ffffff' : '#0f172a' }}
+                      activeDot={{ r: 6, fill: lineColor, stroke: '#ffffff', strokeWidth: 2 }}
                       animationDuration={400}
                     />
                   </LineChart>
@@ -295,19 +306,8 @@ export default function Analytics({ data }) {
           )}
 
           {/* Quick link to 3D Globe & full deep breakdown */}
-          <div style={{
-            marginTop: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-            padding: '14px 18px',
-            borderRadius: '12px',
-            background: 'rgba(99, 102, 241, 0.08)',
-            border: '1px solid rgba(99, 102, 241, 0.22)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary, #cbd5e1)' }}>
+          <div className={styles.globeBanner}>
+            <div className={styles.globeBannerText}>
               <span style={{ fontSize: '16px' }}>🌐</span>
               <span>View <strong>3D Spherical Globe</strong>, state/country density, hardware & traffic analytics</span>
             </div>
