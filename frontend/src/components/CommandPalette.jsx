@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
+import { createUrlSearchIndex } from '../utils/urlSearch.js';
 import styles from './CommandPalette.module.css';
 
 /**
@@ -20,6 +21,7 @@ export default function CommandPalette({
   addToast,
 }) {
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -49,13 +51,6 @@ export default function CommandPalette({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
-
-  // Auto-scroll keyboard-highlighted item into view
-  useEffect(() => {
-    if (!isOpen || !listRef.current) return;
-    const selectedEl = listRef.current.querySelector('[data-selected="true"]');
-    selectedEl?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex, isOpen, query]);
 
   // System commands available in palette
   const systemCommands = useMemo(() => {
@@ -136,9 +131,12 @@ export default function CommandPalette({
     return list;
   }, [currentTheme, onToggleTheme, onFocusNewLink, onOpenPortfolio, onOpenSettings, onOpenLinks, currentActiveCode, onExportCsv, addToast, onClose]);
 
-  // Filtered results (commands + all user-generated links with multi-token relevance ranking)
+  // Pre-build inverted n-gram + exact alias index once when `recentLinks` updates
+  const urlSearchIndex = useMemo(() => createUrlSearchIndex(recentLinks), [recentLinks]);
+
+  // Filtered results (commands + all user-generated links via indexed search)
   const { filteredCommands, filteredLinks, allItems } = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
     const matchedCommands = systemCommands.filter((cmd) => {
@@ -147,40 +145,7 @@ export default function CommandPalette({
       return tokens.every((tok) => lowerTitle.includes(tok));
     });
 
-    let matchedLinks;
-    if (tokens.length === 0) {
-      matchedLinks = recentLinks;
-    } else {
-      const scored = [];
-      for (const link of recentLinks) {
-        const title = (link.title || '').toLowerCase();
-        const code = (link.shortCode || '').toLowerCase();
-        const shortUrl = (link.shortUrl || '').toLowerCase();
-        const original = (link.originalUrl || '').toLowerCase();
-        const tags = (link.tags || '').toLowerCase();
-        const corpus = `${code} ${title} ${tags} ${original} ${shortUrl}`;
-
-        let score = 0;
-        let matchesAll = true;
-        for (const tok of tokens) {
-          if (!corpus.includes(tok)) {
-            matchesAll = false;
-            break;
-          }
-          if (code === tok) score += 100;
-          else if (code.startsWith(tok)) score += 65;
-          else if (code.includes(tok)) score += 45;
-          if (title.includes(tok)) score += title.startsWith(tok) ? 35 : 20;
-          if (tags.includes(tok)) score += 30;
-          if (original.includes(tok) || shortUrl.includes(tok)) score += 10;
-        }
-        if (matchesAll) {
-          scored.push({ link, score });
-        }
-      }
-      scored.sort((a, b) => b.score - a.score);
-      matchedLinks = scored.map((entry) => entry.link);
-    }
+    const matchedLinks = q ? urlSearchIndex.search(q) : recentLinks;
 
     const combined = [
       ...matchedCommands,
@@ -192,9 +157,19 @@ export default function CommandPalette({
       filteredLinks: matchedLinks,
       allItems: combined,
     };
-  }, [query, systemCommands, recentLinks]);
+  }, [deferredQuery, systemCommands, urlSearchIndex, recentLinks]);
 
   // Keyboard navigation up / down / enter
+  const safeSelectedIndex =
+    allItems.length > 0 ? Math.min(selectedIndex, allItems.length - 1) : 0;
+
+  // Auto-scroll keyboard-highlighted item into view
+  useEffect(() => {
+    if (!isOpen || !listRef.current) return;
+    const selectedEl = listRef.current.querySelector('[data-selected="true"]');
+    selectedEl?.scrollIntoView({ block: 'nearest' });
+  }, [safeSelectedIndex, isOpen, deferredQuery]);
+
   const handleInputKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -206,8 +181,8 @@ export default function CommandPalette({
       );
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (allItems.length > 0 && selectedIndex < allItems.length) {
-        handleSelectItem(allItems[selectedIndex]);
+      if (allItems.length > 0 && safeSelectedIndex < allItems.length) {
+        handleSelectItem(allItems[safeSelectedIndex]);
       }
     }
   };
@@ -280,7 +255,7 @@ export default function CommandPalette({
           {allItems.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>🔍</span>
-              <p>No matching links or commands found for &ldquo;{query}&rdquo;</p>
+              <p>No matching links or commands found for &ldquo;{deferredQuery}&rdquo;</p>
             </div>
           ) : (
             <>
@@ -288,9 +263,9 @@ export default function CommandPalette({
               {filteredCommands.length > 0 && (
                 <div className={styles.group}>
                   <div className={styles.groupLabel}>Commands & Navigation</div>
-                  {filteredCommands.map((cmd) => {
-                    const itemIndex = allItems.findIndex((it) => it.id === cmd.id);
-                    const isSelected = itemIndex === selectedIndex;
+                  {filteredCommands.map((cmd, cmdIdx) => {
+                    const itemIndex = cmdIdx;
+                    const isSelected = itemIndex === safeSelectedIndex;
                     return (
                       <div
                         key={cmd.id}
@@ -316,13 +291,13 @@ export default function CommandPalette({
               {filteredLinks.length > 0 && (
                 <div className={styles.group}>
                   <div className={styles.groupLabel}>
-                    {query.trim()
+                    {deferredQuery.trim()
                       ? `Matching Links (${filteredLinks.length}/${recentLinks.length})`
                       : `Your Links (${filteredLinks.length})`}
                   </div>
-                  {filteredLinks.map((link) => {
-                    const itemIndex = allItems.findIndex((it) => it.id === `link-${link.shortCode}`);
-                    const isSelected = itemIndex === selectedIndex;
+                  {filteredLinks.map((link, linkIdx) => {
+                    const itemIndex = filteredCommands.length + linkIdx;
+                    const isSelected = itemIndex === safeSelectedIndex;
                     return (
                       <div
                         key={link.shortCode}

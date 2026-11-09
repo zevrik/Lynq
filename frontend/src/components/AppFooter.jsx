@@ -23,15 +23,15 @@ export default function AppFooter() {
           <div className={styles.footerLogo} onClick={handleLogoClick} title="Lynq Dashboard">
             <div className={styles.footerLogoMark}>
               <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                <rect width="32" height="32" rx="8" fill="url(#appFooterLogoGrad)"/>
+                <rect width="32" height="32" rx="8" fill="url(#appFooterLogoGrad)" />
                 <g transform="translate(6.4, 6.4) scale(0.8)" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </g>
                 <defs>
                   <linearGradient id="appFooterLogoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#6366f1"/>
-                    <stop offset="1" stopColor="#8b5cf6"/>
+                    <stop stopColor="#6366f1" />
+                    <stop offset="1" stopColor="#8b5cf6" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -71,9 +71,9 @@ export default function AppFooter() {
         <div className={styles.footerCol}>
           <h4>Resources</h4>
           <a href="/api/health" target="_blank" rel="noreferrer">API Health Status</a>
-          <a href="https://github.com" target="_blank" rel="noreferrer">GitHub Repository</a>
+          <a href="https://github.com/zevrik/Lynq" target="_blank" rel="noreferrer">GitHub Repository</a>
           <a href="/#recent-links-container">Live Pulse Stream</a>
-          <a href="https://github.com" target="_blank" rel="noreferrer">Documentation</a>
+          <a href="https://github.com/zevrik/Lynq/blob/main/README.md" target="_blank" rel="noreferrer">Documentation</a>
         </div>
       </div>
 

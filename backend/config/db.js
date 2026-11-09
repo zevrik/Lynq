@@ -136,6 +136,7 @@ export const initDb = async () => {
       ALTER TABLE click_history ADD COLUMN IF NOT EXISTS referrer VARCHAR(255);
 
       CREATE INDEX IF NOT EXISTS idx_urls_user_id ON urls (user_id);
+      CREATE INDEX IF NOT EXISTS idx_urls_user_created ON urls (user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_click_history_code_time ON click_history (short_code, clicked_at DESC);
       CREATE INDEX IF NOT EXISTS idx_urls_original_device ON urls (original_url, device_id);
       CREATE INDEX IF NOT EXISTS idx_urls_expires_at ON urls (expires_at) WHERE expires_at IS NOT NULL;

@@ -1,18 +1,20 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { checkStatus } from '../services/api.js';
+import { createUrlSearchIndex } from '../utils/urlSearch.js';
 import styles from './RecentUrls.module.css';
 
 const MAX_VISIBLE_LINKS = 6;
 
 /**
- * RecentUrls — shows up to 5-6 shortened URLs with fast auto-adjusting list.
+ * RecentUrls — shows shortened URLs with inverted-index search across all user links.
  */
 export default function RecentUrls({ items = [], onSelect, onClear, onDelete, onEdit, isSignedIn = false }) {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [showAll, setShowAll] = useState(false);
   const [statusMap, setStatusMap] = useState({}); // shortCode → { isAlive }
 
@@ -22,93 +24,28 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
     setEditingId(null);
   }, [isSignedIn]);
 
-  // 1. Pre-index search corpus per item (memoized on items changes).
-  // Eliminates repeated lowercasing and field traversal on every keystroke.
-  const indexedItems = useMemo(() => {
-    return items.map((item) => {
-      const codeLower = (item.shortCode || '').toLowerCase();
-      const shortUrlLower = (item.shortUrl || '').toLowerCase();
-      const titleLower = (item.title || '').toLowerCase();
-      const tagsLower = (item.tags || '').toLowerCase();
-      const urlLower = (item.originalUrl || '').toLowerCase();
-      return {
-        item,
-        codeLower,
-        titleLower,
-        tagsLower,
-        urlLower,
-        fullCorpus: `${codeLower} ${titleLower} ${tagsLower} ${urlLower} ${shortUrlLower}`,
-      };
-    });
-  }, [items]);
+  // 1. Build inverted n-gram + exact alias search index once per `items` update
+  const searchIndex = useMemo(() => createUrlSearchIndex(items), [items]);
 
-  // 2. High-performance multi-token search with fast O(1) reject and relevance ranking
-  const filteredItems = useMemo(() => {
-    const trimmed = searchQuery.trim().toLowerCase();
-    if (!trimmed) return items;
+  // 2. Execute indexed multi-token search with relevance ranking
+  const filteredItems = useMemo(
+    () => searchIndex.search(deferredSearchQuery),
+    [searchIndex, deferredSearchQuery]
+  );
 
-    const tokens = trimmed.split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) return items;
-
-    const matches = [];
-
-    for (let i = 0; i < indexedItems.length; i++) {
-      const entry = indexedItems[i];
-      let score = 0;
-      let matchedAll = true;
-
-      for (let t = 0; t < tokens.length; t++) {
-        const token = tokens[t];
-
-        // Fast O(1) string check: if token isn't in full corpus, skip immediately
-        if (!entry.fullCorpus.includes(token)) {
-          matchedAll = false;
-          break;
-        }
-
-        // Weighted relevance scoring: prioritize alias prefix and exact matches
-        if (entry.codeLower === token) {
-          score += 100; // Exact alias match
-        } else if (entry.codeLower.startsWith(token)) {
-          score += 65;  // Alias prefix match (e.g. "git" -> "/github")
-        } else if (entry.codeLower.includes(token)) {
-          score += 45;  // Alias contains token
-        }
-
-        if (entry.titleLower.includes(token)) {
-          score += entry.titleLower.startsWith(token) ? 35 : 20;
-        }
-
-        if (entry.tagsLower.includes(token)) {
-          score += 30;
-        }
-
-        if (entry.urlLower.includes(token)) {
-          score += 10;
-        }
-      }
-
-      if (matchedAll) {
-        matches.push({ item: entry.item, score });
-      }
-    }
-
-    // Rank highest relevance score first
-    matches.sort((a, b) => b.score - a.score);
-    return matches.map((m) => m.item);
-  }, [indexedItems, searchQuery, items]);
-
-  const isSearching = searchQuery.trim() !== '';
+  const isSearching = deferredSearchQuery.trim() !== '';
   const displayItems = isSearching
     ? filteredItems
     : (showAll ? items : items.slice(0, MAX_VISIBLE_LINKS));
 
-  // Check status for displayed items in parallel (fast, non-blocking)
+  // Check status for displayed items in bounded batches (prevents rate-limit burst on broad queries)
   useEffect(() => {
     if (!displayItems || displayItems.length === 0) return;
     let cancelled = false;
 
-    const uncached = displayItems.filter(item => !(item.shortCode in statusMap));
+    const uncached = displayItems
+      .filter((item) => !(item.shortCode in statusMap))
+      .slice(0, 12);
     if (uncached.length === 0) return;
 
     Promise.allSettled(
@@ -166,9 +103,9 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
           <span>{isSignedIn ? 'Your Links' : 'Recent Links'}</span>
           <span 
             className={styles.countBadge}
-            title={searchQuery.trim() ? `${filteredItems.length} matching of ${items.length} total links` : `Total links created: ${items.length}`}
+            title={isSearching ? `${filteredItems.length} matching of ${items.length} total links` : `Total links created: ${items.length}`}
           >
-            {searchQuery.trim() ? `${filteredItems.length}/${items.length}` : items.length}
+            {isSearching ? `${filteredItems.length}/${items.length}` : items.length}
           </span>
         </div>
         <div className={styles.headerActions}>
@@ -215,7 +152,7 @@ export default function RecentUrls({ items = [], onSelect, onClear, onDelete, on
 
       <ul className={`${styles.list} ${(isSearching || showAll) ? styles.listScrollable : ''}`}>
         {displayItems.length === 0 ? (
-          <li className={styles.emptyState}>No links found matching "{searchQuery}"</li>
+          <li className={styles.emptyState}>No links found matching "{deferredSearchQuery}"</li>
         ) : (
           <AnimatePresence initial={false} mode="popLayout">
             {displayItems.map((item) => {

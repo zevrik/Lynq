@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserLinks, getUserAnalyticsSummary, editUrl, deleteUrl } from '../services/api.js';
+import { createUrlSearchIndex } from '../utils/urlSearch.js';
 import styles from './UserPortfolio.module.css';
 
 export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast }) {
@@ -9,6 +10,7 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [editingCode, setEditingCode] = useState(null);
   const [editNewUrl, setEditNewUrl] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -84,16 +86,13 @@ export default function UserPortfolio({ isOpen, onClose, onSelectLink, addToast 
     }
   };
 
-  if (!isOpen) return null;
+  const searchIndex = useMemo(() => createUrlSearchIndex(links), [links]);
+  const filteredLinks = useMemo(
+    () => searchIndex.search(deferredSearch),
+    [searchIndex, deferredSearch]
+  );
 
-  const filteredLinks = links.filter((l) => {
-    const q = search.toLowerCase();
-    return (
-      l.shortCode.toLowerCase().includes(q) ||
-      l.originalUrl.toLowerCase().includes(q) ||
-      (l.title && l.title.toLowerCase().includes(q))
-    );
-  });
+  if (!isOpen) return null;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
