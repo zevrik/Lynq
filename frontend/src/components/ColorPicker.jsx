@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Pipette } from 'lucide-react';
 import styles from './ColorPicker.module.css';
 
-const POPOVER_WIDTH = 236;
-const POPOVER_HEIGHT = 228;
+const POPOVER_WIDTH = 200;
+const POPOVER_HEIGHT = 198;
 
 function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
@@ -150,46 +150,39 @@ export default function ColorPicker({
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
     const containerRect = anchorContainerRef?.current?.getBoundingClientRect();
-    const margin = 12;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+    const popW = popoverRef.current?.offsetWidth || POPOVER_WIDTH;
+    const popH = popoverRef.current?.offsetHeight || POPOVER_HEIGHT;
+    const margin = 8;
+    const maxTop = Math.max(margin, viewportHeight - popH - margin);
 
     if (placement === 'right') {
-      const cardRightEdge = containerRect ? containerRect.right + 14 : rect.right + 14;
-      const swatchRightEdge = rect.right + 12;
+      const anchorRight = containerRect ? containerRect.right + 8 : rect.right + 8;
+      const availableRightOfTrigger = viewportWidth - margin - rect.right;
 
-      if (cardRightEdge + POPOVER_WIDTH <= window.innerWidth - margin) {
-        const top = clamp(
-          rect.top - 4,
-          margin,
-          Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin),
-        );
-        setCoords({ top, left: cardRightEdge, origin: 'top left' });
-        return;
-      }
-
-      if (swatchRightEdge + POPOVER_WIDTH <= window.innerWidth - margin) {
-        const top = clamp(
-          rect.top - 4,
-          margin,
-          Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin),
-        );
-        setCoords({ top, left: swatchRightEdge, origin: 'top left' });
+      if (availableRightOfTrigger >= 88) {
+        const maxLeft = Math.max(margin, viewportWidth - popW - margin);
+        const left = Math.min(anchorRight, maxLeft);
+        const top = clamp(rect.bottom, margin, maxTop);
+        setCoords({ top, left, origin: 'top left' });
         return;
       }
     }
 
-    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceBelow = viewportHeight - rect.bottom;
     let top = rect.bottom + 10;
-    if (spaceBelow < POPOVER_HEIGHT + margin && rect.top > POPOVER_HEIGHT + margin) {
-      top = rect.top - POPOVER_HEIGHT - 10;
+    if (spaceBelow < popH + margin && rect.top > popH + margin) {
+      top = rect.top - popH - 10;
     } else {
-      top = Math.min(top, Math.max(margin, window.innerHeight - POPOVER_HEIGHT - margin));
+      top = Math.min(top, maxTop);
     }
 
-    let left = rect.right - POPOVER_WIDTH;
-    if (left < margin && rect.left + POPOVER_WIDTH + margin <= window.innerWidth) {
+    let left = rect.right - popW;
+    if (left < margin && rect.left + popW + margin <= viewportWidth) {
       left = rect.left;
     }
-    left = clamp(left, margin, Math.max(margin, window.innerWidth - POPOVER_WIDTH - margin));
+    left = clamp(left, margin, Math.max(margin, viewportWidth - popW - margin));
     setCoords({ top, left, origin: 'top left' });
   }, [placement, anchorContainerRef]);
 

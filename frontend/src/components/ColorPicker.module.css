@@ -51,8 +51,8 @@
 .popover {
   position: fixed;
   z-index: 1200;
-  width: 236px;
-  border-radius: 16px;
+  width: 200px;
+  border-radius: 15px;
   background: #18181c;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(0, 0, 0, 0.25);
@@ -72,7 +72,7 @@
 .svArea {
   position: relative;
   width: 100%;
-  height: 156px;
+  height: 132px;
   cursor: crosshair;
   background-image:
     linear-gradient(to top, #000000, rgba(0, 0, 0, 0)),
@@ -94,8 +94,8 @@
 .controlsBar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 14px 15px;
+  gap: 10px;
+  padding: 12px 12px 13px;
   background: #141418;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -106,8 +106,8 @@
 }
 
 .eyedropperBtn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
   border: none;
   background: transparent;
