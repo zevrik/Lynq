@@ -137,7 +137,11 @@ export const initDb = async () => {
 
       CREATE INDEX IF NOT EXISTS idx_urls_user_id ON urls (user_id);
       CREATE INDEX IF NOT EXISTS idx_urls_user_created ON urls (user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_urls_user_original ON urls (user_id, original_url) WHERE user_id IS NOT NULL AND password_hash IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_urls_user_clicks ON urls (user_id, clicks DESC, created_at DESC) WHERE user_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_urls_guest_device_active ON urls (device_id, expires_at) WHERE user_id IS NULL AND device_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_click_history_code_time ON click_history (short_code, clicked_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_click_history_country_active ON click_history (country) WHERE country IS NOT NULL AND country != 'Unknown' AND country != '';
       CREATE INDEX IF NOT EXISTS idx_urls_original_device ON urls (original_url, device_id);
       CREATE INDEX IF NOT EXISTS idx_urls_expires_at ON urls (expires_at) WHERE expires_at IS NOT NULL;
     `;

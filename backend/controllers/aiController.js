@@ -6,6 +6,7 @@ import {
 import { isValidUrl } from "../utils/validator.js";
 import pool from "../config/db.js";
 import redisClient from "../config/redis.js";
+import { urlL1Cache, isNegativeCacheHit } from "../utils/dbCache.js";
 
 /**
  * POST /api/ai/suggest
@@ -52,14 +53,21 @@ export const handleGetSummary = async (req, res, next) => {
         .json({ success: false, error: "Short code is required." });
     }
 
-    // Lookup destination URL in Redis first, then PostgreSQL
+    // Lookup destination URL in L1 RAM -> Redis Hash (`original_url`) -> PostgreSQL
     let originalUrl = null;
-    try {
-      const cached = await redisClient.hGetAll(`url:${shortCode}`);
-      if (cached && cached.originalUrl) {
-        originalUrl = cached.originalUrl;
-      }
-    } catch {}
+    const l1Hit = urlL1Cache.get(`url:${shortCode}`);
+    if (l1Hit && !isNegativeCacheHit(l1Hit) && l1Hit.original_url) {
+      originalUrl = l1Hit.original_url;
+    }
+
+    if (!originalUrl && redisClient?.isReady) {
+      try {
+        const cached = await redisClient.hGetAll(`url:${shortCode}`);
+        if (cached && (cached.original_url || cached.originalUrl)) {
+          originalUrl = cached.original_url || cached.originalUrl;
+        }
+      } catch {}
+    }
 
     if (!originalUrl) {
       const { rows } = await pool.query(

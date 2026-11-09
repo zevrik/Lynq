@@ -1,5 +1,6 @@
 import pool from "../config/db.js";
 import env from "../config/env.js";
+import { invalidateUrlInfoCacheBatch } from "../utils/dbCache.js";
 
 /**
  * POST /api/user/claim-links
@@ -41,38 +42,30 @@ export const handleClaimLinks = async (req, res, next) => {
       });
     }
 
-    const claimedSet = new Set();
+    const claimCodes = validPairs.map((p) => p.shortCode);
+    const claimTokens = validPairs.map((p) => p.editToken);
 
-    // 1. Claim links matching (short_code, edit_token) where not owned by another user
-    for (const { shortCode, editToken } of validPairs) {
-      const result = await pool.query(
-        `UPDATE urls 
-         SET user_id = $1, device_id = NULL 
-         WHERE short_code = $2 AND edit_token = $3 AND user_id IS NULL
-         RETURNING short_code`,
-        [userId, shortCode, editToken],
-      );
-      if (result.rows.length > 0) {
-        claimedSet.add(result.rows[0].short_code);
-      }
+    // Single set-based atomic claim (replaces N+1 sequential UPDATE loop)
+    const { rows } = await pool.query(
+      `UPDATE urls u
+       SET user_id = $1, device_id = NULL
+       WHERE u.user_id IS NULL
+         AND (
+           EXISTS (
+             SELECT 1
+             FROM UNNEST($2::varchar[], $3::varchar[]) AS pair(sc, et)
+             WHERE u.short_code = pair.sc AND u.edit_token = pair.et
+           )
+           OR ($4::varchar IS NOT NULL AND u.device_id = $4::varchar)
+         )
+       RETURNING u.short_code`,
+      [userId, claimCodes, claimTokens, safeDeviceId],
+    );
+
+    const claimedCodes = Array.from(new Set(rows.map((r) => r.short_code)));
+    if (claimedCodes.length > 0) {
+      await invalidateUrlInfoCacheBatch(claimedCodes);
     }
-
-    // 2. Claim any remaining unclaimed links associated with this guest browser deviceId
-    //    (covers duplicate-returned guest links or items created earlier on the same browser)
-    if (safeDeviceId) {
-      const deviceResult = await pool.query(
-        `UPDATE urls
-         SET user_id = $1, device_id = NULL
-         WHERE device_id = $2 AND user_id IS NULL
-         RETURNING short_code`,
-        [userId, safeDeviceId],
-      );
-      for (const row of deviceResult.rows) {
-        claimedSet.add(row.short_code);
-      }
-    }
-
-    const claimedCodes = Array.from(claimedSet);
 
     return res.status(200).json({
       success: true,

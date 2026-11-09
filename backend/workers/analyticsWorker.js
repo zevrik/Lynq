@@ -2,6 +2,7 @@ import redisClient from "../config/redis.js";
 import pool from "../config/db.js";
 import eventBus from "../config/eventBus.js";
 import { parseClickTelemetry } from "../utils/telemetry.js";
+import { invalidateUrlInfoCacheBatch, invalidateUrlCache } from "../utils/dbCache.js";
 
 const BATCH_SIZE = 500;
 const INTERVAL_MS = 5000;
@@ -190,37 +191,55 @@ export const startAnalyticsWorker = () => {
 
         const urlTotalClicksMap = {};
         const uniqueShortCodes = Object.keys(urlClicksMap);
-        for (const code of uniqueShortCodes) {
+
+        // Single set-based UNNEST bulk update instead of N sequential UPDATE queries
+        if (uniqueShortCodes.length > 0) {
+          const clickCounts = uniqueShortCodes.map((c) => urlClicksMap[c]);
+          const lastVisits = uniqueShortCodes.map((c) => urlLastVisitMap[c]);
           const { rows: updatedRows } = await client.query(
-            "UPDATE urls SET clicks = clicks + $1, last_visited = GREATEST(COALESCE(last_visited, $2::timestamp), $2::timestamp) WHERE short_code = $3 RETURNING clicks",
-            [urlClicksMap[code], urlLastVisitMap[code], code],
+            `
+            UPDATE urls u
+            SET
+              clicks = u.clicks + batch.cnt,
+              last_visited = GREATEST(COALESCE(u.last_visited, batch.last_ts), batch.last_ts)
+            FROM UNNEST($1::varchar[], $2::int[], $3::timestamptz[]) AS batch(code, cnt, last_ts)
+            WHERE u.short_code = batch.code
+            RETURNING u.short_code, u.clicks
+            `,
+            [uniqueShortCodes, clickCounts, lastVisits],
           );
-          if (updatedRows[0]) {
-            urlTotalClicksMap[code] = parseInt(updatedRows[0].clicks, 10);
+          for (const row of updatedRows) {
+            urlTotalClicksMap[row.short_code] = parseInt(row.clicks, 10);
           }
         }
 
-        const maxClicksResult = await client.query(
-          `
-          SELECT urls.id, urls.short_code 
-          FROM urls 
-          JOIN (
-            SELECT short_code, COUNT(*) as count 
-            FROM unique_visitors 
-            WHERE short_code = ANY($1) 
-            GROUP BY short_code
-          ) uv ON urls.short_code = uv.short_code 
-          WHERE urls.max_clicks IS NOT NULL AND uv.count >= urls.max_clicks
-        `,
-          [uniqueShortCodes],
-        );
+        const maxClicksResult = uniqueShortCodes.length > 0
+          ? await client.query(
+              `
+              SELECT urls.id, urls.short_code 
+              FROM urls 
+              JOIN (
+                SELECT short_code, COUNT(*) as count 
+                FROM unique_visitors 
+                WHERE short_code = ANY($1) 
+                GROUP BY short_code
+              ) uv ON urls.short_code = uv.short_code 
+              WHERE urls.max_clicks IS NOT NULL AND uv.count >= urls.max_clicks
+            `,
+              [uniqueShortCodes],
+            )
+          : { rows: [] };
 
-        for (const row of maxClicksResult.rows) {
-          await client.query("DELETE FROM urls WHERE id = $1", [row.id]);
-          await redisClient.del(`url:${row.short_code}`);
+        if (maxClicksResult.rows.length > 0) {
+          const expiredIds = maxClicksResult.rows.map((r) => r.id);
+          await client.query("DELETE FROM urls WHERE id = ANY($1::int[])", [expiredIds]);
+          await Promise.all(maxClicksResult.rows.map((r) => invalidateUrlCache(r.short_code)));
         }
 
         await client.query("COMMIT");
+
+        // Invalidate cached analytics & platform stats so refreshes stay fresh
+        await invalidateUrlInfoCacheBatch(uniqueShortCodes);
 
         // ── Success: clear retry counter for this batch ───────────────────────
         retryCounters.delete(batchKey);

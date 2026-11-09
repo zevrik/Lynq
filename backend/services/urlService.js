@@ -8,6 +8,21 @@ import { isValidUrl, normaliseUrl } from "../utils/validator.js";
 import { computeVisitorHash, parseClickTelemetry } from "../utils/telemetry.js";
 import redisClient from "../config/redis.js";
 import { RATE_LIMITS } from "../middlewares/rateLimiter.js";
+import {
+  urlL1Cache,
+  infoL1Cache,
+  statsL1Cache,
+  singleflight,
+  isNegativeCacheHit,
+  markUrlMissing,
+  isUrlMarkedMissingInRedis,
+  cacheUrlHashInRedis,
+  normalizeUrlRecord,
+  clearNegativeUrl,
+  invalidateUrlCache,
+  invalidateUrlInfoCacheBatch,
+  getOrLoadJson,
+} from "../utils/dbCache.js";
 
 const hasAnyRoutingRule = (routingRules) => {
   if (!routingRules || typeof routingRules !== "object") return false;
@@ -169,46 +184,6 @@ export const shortenUrl = async (
     }
   }
 
-  let shortCode = trimmedAlias || null;
-
-  if (shortCode) {
-    if (!/^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
-      const err = new Error(
-        "Custom alias must be 3–30 alphanumeric characters or hyphens.",
-      );
-      err.status = 400;
-      throw err;
-    }
-    const { rows } = await pool.query(
-      "SELECT id FROM urls WHERE short_code = $1",
-      [shortCode],
-    );
-    if (rows.length > 0) {
-      const err = new Error("That custom alias is already taken. Try another.");
-      err.status = 409;
-      throw err;
-    }
-  } else {
-    for (let i = 0; i < 5; i++) {
-      const candidate = generateShortCode(i);
-      const { rows } = await pool.query(
-        "SELECT id FROM urls WHERE short_code = $1",
-        [candidate],
-      );
-      if (rows.length === 0) {
-        shortCode = candidate;
-        break;
-      }
-    }
-    if (!shortCode) {
-      const err = new Error(
-        "Failed to generate a unique short code. Please try again.",
-      );
-      err.status = 500;
-      throw err;
-    }
-  }
-
   let passwordHash = null;
   if (trimmedPassword && trimmedPassword.length > 0) {
     passwordHash = await bcrypt.hash(trimmedPassword, 10);
@@ -254,43 +229,117 @@ export const shortenUrl = async (
     }
   }
 
-  const { rows: insertRows } = await pool.query(
-    `
-    INSERT INTO urls (short_code, original_url, password_hash, max_clicks, expires_at, edit_token, title, tags, device_id, user_id, routing_rules)
-    VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + ($5 || ' days')::interval, $6, $7, $8, $9, $10, $11)
-    RETURNING *
-  `,
-    [
-      shortCode,
-      originalUrl,
-      passwordHash,
-      parsedMaxClicks || null,
-      numericExpiry,
-      editToken,
-      title,
-      trimmedTags,
-      effectiveDeviceId,
-      userId || null,
-      JSON.stringify(cleanedRules),
-    ],
-  );
+  let shortCode = trimmedAlias || null;
+  let inserted = null;
 
-  const inserted = insertRows[0];
+  if (shortCode) {
+    if (!/^[a-zA-Z0-9-]{3,30}$/.test(shortCode)) {
+      const err = new Error(
+        "Custom alias must be 3–30 alphanumeric characters or hyphens.",
+      );
+      err.status = 400;
+      throw err;
+    }
 
-  // Instantly Cache into Redis Hash
-  try {
-    await redisClient.hSet(`url:${shortCode}`, {
-      original_url: inserted.original_url,
-      password_hash: inserted.password_hash || "",
-      max_clicks: inserted.max_clicks ? inserted.max_clicks.toString() : "",
-      expires_at: inserted.expires_at ? inserted.expires_at.toISOString() : "",
-      routing_rules: JSON.stringify(inserted.routing_rules || cleanedRules),
-      id: inserted.id.toString(),
-    });
-    await redisClient.expire(`url:${shortCode}`, 86400); // 24hr TTL
-  } catch (err) {
-    console.error("Redis cache set failed:", err.message);
+    // Fast path: check L1 / Redis before querying Postgres
+    const cachedAlias = urlL1Cache.get(`url:${shortCode}`);
+    if (cachedAlias && !isNegativeCacheHit(cachedAlias) && (!cachedAlias.expires_at || cachedAlias.expires_at > new Date())) {
+      const err = new Error("That custom alias is already taken. Try another.");
+      err.status = 409;
+      throw err;
+    }
+
+    try {
+      const { rows: insertRows } = await pool.query(
+        `
+        INSERT INTO urls (short_code, original_url, password_hash, max_clicks, expires_at, edit_token, title, tags, device_id, user_id, routing_rules)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + ($5 || ' days')::interval, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `,
+        [
+          shortCode,
+          originalUrl,
+          passwordHash,
+          parsedMaxClicks || null,
+          numericExpiry,
+          editToken,
+          title,
+          trimmedTags,
+          effectiveDeviceId,
+          userId || null,
+          JSON.stringify(cleanedRules),
+        ],
+      );
+      inserted = insertRows[0];
+    } catch (err) {
+      if (err.code === "23505") {
+        const conflictErr = new Error("That custom alias is already taken. Try another.");
+        conflictErr.status = 409;
+        throw conflictErr;
+      }
+      throw err;
+    }
+  } else {
+    // Optimistic INSERT with 23505 collision retry eliminates the extra pre-check DB round-trip
+    for (let i = 0; i < 5; i++) {
+      const candidate = generateShortCode(i);
+      try {
+        const { rows: insertRows } = await pool.query(
+          `
+          INSERT INTO urls (short_code, original_url, password_hash, max_clicks, expires_at, edit_token, title, tags, device_id, user_id, routing_rules)
+          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + ($5 || ' days')::interval, $6, $7, $8, $9, $10, $11)
+          RETURNING *
+        `,
+          [
+            candidate,
+            originalUrl,
+            passwordHash,
+            parsedMaxClicks || null,
+            numericExpiry,
+            editToken,
+            title,
+            trimmedTags,
+            effectiveDeviceId,
+            userId || null,
+            JSON.stringify(cleanedRules),
+          ],
+        );
+        shortCode = candidate;
+        inserted = insertRows[0];
+        break;
+      } catch (err) {
+        if (err.code === "23505" && i < 4) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!inserted || !shortCode) {
+      const err = new Error(
+        "Failed to generate a unique short code. Please try again.",
+      );
+      err.status = 500;
+      throw err;
+    }
   }
+
+  // Clear negative cache sentinel + warm L1 & pipelined Redis cache (single RTT)
+  clearNegativeUrl(shortCode);
+  statsL1Cache.delete("platform_stats");
+
+  const hashPayload = {
+    original_url: inserted.original_url,
+    password_hash: inserted.password_hash || "",
+    max_clicks: inserted.max_clicks ? inserted.max_clicks.toString() : "",
+    expires_at: inserted.expires_at ? inserted.expires_at.toISOString() : "",
+    routing_rules: JSON.stringify(inserted.routing_rules || cleanedRules),
+    id: inserted.id.toString(),
+  };
+
+  if (!inserted.max_clicks) {
+    urlL1Cache.set(`url:${shortCode}`, normalizeUrlRecord(inserted), 15_000);
+  }
+  await cacheUrlHashInRedis(shortCode, hashPayload, 86400);
 
   return {
     shortUrl: `${env.frontendUrl}/${shortCode}`,
@@ -324,7 +373,7 @@ const queueAnalyticsClick = async (shortCode, ip, userAgent, referrer, extraData
       }
     }
 
-    if (shouldTrack) {
+    if (shouldTrack && redisClient.isReady && typeof redisClient.rPush === "function") {
       const clickData = JSON.stringify({
         shortCode,
         ip,
@@ -350,70 +399,77 @@ export const resolveUrl = async (
   userAgent = "",
   referrer = "",
 ) => {
-  let data = null;
-
-  // 1. FAST PATH: Fetch entirely from Redis RAM
-  try {
-    const cached = await redisClient.hGetAll(`url:${shortCode}`);
-    if (cached && cached.original_url) {
-      data = cached;
-      if (data.password_hash === "") data.password_hash = null;
-      if (data.max_clicks === "") data.max_clicks = null;
-      else data.max_clicks = parseInt(data.max_clicks, 10);
-      if (data.expires_at === "") data.expires_at = null;
-      else data.expires_at = new Date(data.expires_at);
-
-      if (data.routing_rules) {
-        try {
-          data.routing_rules = typeof data.routing_rules === "string" ? JSON.parse(data.routing_rules) : data.routing_rules;
-        } catch {
-          data.routing_rules = {};
-        }
-      } else {
-        data.routing_rules = {};
-      }
-    }
-  } catch (err) {
-    console.error("Redis cache get failed:", err.message);
+  // 0. L1 In-Process LRU RAM Fast Path + Negative 404 Shield
+  let data = urlL1Cache.get(`url:${shortCode}`);
+  if (isNegativeCacheHit(data)) {
+    const err = new Error("Short URL not found or has expired.");
+    err.status = 404;
+    throw err;
   }
 
-  // 2. SLOW PATH: Fallback to PostgreSQL
+  // 1 & 2. Coalesced Read-Through (L2 Redis Hash -> PostgreSQL) via Singleflight
   if (!data) {
-    const { rows } = await pool.query(
-      "SELECT * FROM urls WHERE short_code = $1",
-      [shortCode],
-    );
-    if (rows.length === 0) {
+    data = await singleflight(`resolve:${shortCode}`, async () => {
+      const l1SecondCheck = urlL1Cache.get(`url:${shortCode}`);
+      if (isNegativeCacheHit(l1SecondCheck)) return l1SecondCheck;
+      if (l1SecondCheck) return l1SecondCheck;
+
+      // 1a. Check Redis negative sentinel to block repeat 404 scans from hitting DB
+      if (await isUrlMarkedMissingInRedis(shortCode)) {
+        return { __negative: true };
+      }
+
+      // 1b. Fetch from Redis Hash
+      if (redisClient?.isReady) {
+        try {
+          const cached = await redisClient.hGetAll(`url:${shortCode}`);
+          if (cached && cached.original_url) {
+            const normalized = normalizeUrlRecord(cached);
+            if (!normalized.max_clicks) {
+              urlL1Cache.set(`url:${shortCode}`, normalized, 15_000);
+            }
+            return normalized;
+          }
+        } catch (err) {
+          console.error("Redis cache get failed:", err.message);
+        }
+      }
+
+      // 2. Fallback to PostgreSQL
+      const { rows } = await pool.query(
+        "SELECT * FROM urls WHERE short_code = $1",
+        [shortCode],
+      );
+      if (rows.length === 0) {
+        await markUrlMissing(shortCode, 15);
+        return { __negative: true };
+      }
+
+      const normalized = normalizeUrlRecord(rows[0]);
+      if (!normalized.max_clicks) {
+        urlL1Cache.set(`url:${shortCode}`, normalized, 15_000);
+      }
+
+      await cacheUrlHashInRedis(
+        shortCode,
+        {
+          original_url: normalized.original_url,
+          password_hash: normalized.password_hash || "",
+          max_clicks: normalized.max_clicks ? normalized.max_clicks.toString() : "",
+          expires_at: normalized.expires_at ? normalized.expires_at.toISOString() : "",
+          routing_rules: JSON.stringify(normalized.routing_rules || {}),
+          id: normalized.id || "",
+        },
+        86400,
+      );
+
+      return normalized;
+    });
+
+    if (isNegativeCacheHit(data)) {
       const err = new Error("Short URL not found or has expired.");
       err.status = 404;
       throw err;
-    }
-    data = rows[0];
-
-    // Parse routing_rules from Postgres row
-    if (data.routing_rules) {
-      try {
-        data.routing_rules = typeof data.routing_rules === "string" ? JSON.parse(data.routing_rules) : data.routing_rules;
-      } catch {
-        data.routing_rules = {};
-      }
-    } else {
-      data.routing_rules = {};
-    }
-
-    // Re-cache for the next person
-    try {
-      await redisClient.hSet(`url:${shortCode}`, {
-        original_url: data.original_url,
-        password_hash: data.password_hash || "",
-        max_clicks: data.max_clicks ? data.max_clicks.toString() : "",
-        expires_at: data.expires_at ? data.expires_at.toISOString() : "",
-        routing_rules: JSON.stringify(data.routing_rules || {}),
-        id: data.id.toString(),
-      });
-      await redisClient.expire(`url:${shortCode}`, 86400);
-    } catch (err) {
-      console.error("Redis cache fallback set failed:", err.message);
     }
   }
 
@@ -433,7 +489,8 @@ export const resolveUrl = async (
 
     if (isExpired) {
       await pool.query("DELETE FROM urls WHERE short_code = $1", [shortCode]);
-      await redisClient.del(`url:${shortCode}`);
+      await invalidateUrlCache(shortCode);
+      await markUrlMissing(shortCode, 15);
     }
     const err = new Error("Short URL not found or has expired.");
     err.status = 404;
@@ -494,7 +551,8 @@ export const verifyUrlPassword = async (
 
   if (rows.length === 0) {
     await pool.query("DELETE FROM urls WHERE short_code = $1", [shortCode]);
-    await redisClient.del(`url:${shortCode}`).catch(() => {});
+    await invalidateUrlCache(shortCode);
+    await markUrlMissing(shortCode, 15);
     const err = new Error("Short URL not found or has expired.");
     err.status = 404;
     throw err;
@@ -585,7 +643,7 @@ export const verifyUrlPassword = async (
 
       if (uniqueCount >= data.max_clicks) {
         await client.query("DELETE FROM urls WHERE id = $1", [data.id]);
-        await redisClient.del(`url:${shortCode}`).catch(() => {});
+        await invalidateUrlCache(shortCode);
       }
     }
 
@@ -596,6 +654,9 @@ export const verifyUrlPassword = async (
   } finally {
     client.release();
   }
+
+  // Invalidate cached analytics summary so immediate refresh shows committed click
+  await invalidateUrlInfoCacheBatch([shortCode]);
 
   // Broadcast committed telemetry immediately via SSE
   eventBus.emit(`click:${shortCode}`, {
@@ -617,171 +678,200 @@ export const verifyUrlPassword = async (
 };
 
 export const getUrlInfo = async (shortCode) => {
-  const { rows } = await pool.query(
-    "SELECT * FROM urls WHERE short_code = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
-    [shortCode],
-  );
+  return getOrLoadJson({
+    l1Cache: infoL1Cache,
+    cacheKey: `url_info:${shortCode}`,
+    l1TtlMs: 10_000,
+    redisTtlSec: 45,
+    loader: async () => {
+      // Single-pass CTE collapses 11 sequential/fan-out DB queries into ONE heap pass & ONE network round-trip
+      const { rows } = await pool.query(
+        `
+        WITH target_url AS (
+          SELECT
+            id,
+            short_code,
+            original_url,
+            title,
+            clicks,
+            created_at,
+            last_visited,
+            routing_rules,
+            (password_hash IS NOT NULL) AS is_protected,
+            CASE
+              WHEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - created_at)) <= 172800 THEN 'hour'
+              ELSE 'day'
+            END AS bucket_interval
+          FROM urls
+          WHERE short_code = $1
+            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+          LIMIT 1
+        ),
+        scoped_clicks AS MATERIALIZED (
+          SELECT
+            CASE
+              WHEN t.bucket_interval = 'hour' THEN DATE_TRUNC('hour', ch.clicked_at)
+              ELSE DATE_TRUNC('day', ch.clicked_at)
+            END AS bucket,
+            ch.visitor_hash,
+            ch.device_type,
+            ch.country,
+            ch.region,
+            ch.city,
+            ch.latitude,
+            ch.longitude,
+            ch.browser,
+            ch.os,
+            ch.referrer
+          FROM click_history ch
+          JOIN target_url t ON ch.short_code = t.short_code
+        )
+        SELECT
+          t.short_code,
+          t.original_url,
+          t.title,
+          t.clicks,
+          t.created_at,
+          t.last_visited,
+          t.routing_rules,
+          t.is_protected,
+          t.bucket_interval,
+          COALESCE((SELECT COUNT(*)::int FROM unique_visitors uv WHERE uv.short_code = t.short_code), 0) AS unique_visitors,
+          COALESCE((
+            SELECT json_agg(row_to_json(h) ORDER BY h.bucket ASC)
+            FROM (
+              SELECT
+                bucket,
+                COUNT(*)::int AS total_clicks,
+                COUNT(DISTINCT visitor_hash)::int AS unique_clicks
+              FROM scoped_clicks
+              GROUP BY bucket
+            ) h
+          ), '[]'::json) AS history,
+          COALESCE((
+            SELECT json_agg(row_to_json(d) ORDER BY d.count DESC)
+            FROM (
+              SELECT COALESCE(device_type, 'desktop') AS device, COUNT(*)::int AS count
+              FROM scoped_clicks
+              GROUP BY device_type
+            ) d
+          ), '[]'::json) AS devices,
+          COALESCE((
+            SELECT json_agg(row_to_json(c) ORDER BY c.count DESC)
+            FROM (
+              SELECT COALESCE(country, 'Unknown') AS country, COUNT(*)::int AS count
+              FROM scoped_clicks
+              WHERE country IS NOT NULL AND country != ''
+              GROUP BY country
+              ORDER BY count DESC
+              LIMIT 15
+            ) c
+          ), '[]'::json) AS countries,
+          COALESCE((
+            SELECT json_agg(row_to_json(ci) ORDER BY ci.count DESC)
+            FROM (
+              SELECT COALESCE(city, 'Unknown') AS city, country, COUNT(*)::int AS count
+              FROM scoped_clicks
+              WHERE city IS NOT NULL AND city != ''
+              GROUP BY city, country
+              ORDER BY count DESC
+              LIMIT 15
+            ) ci
+          ), '[]'::json) AS cities,
+          COALESCE((
+            SELECT json_agg(row_to_json(b) ORDER BY b.count DESC)
+            FROM (
+              SELECT COALESCE(browser, 'Unknown') AS browser, COUNT(*)::int AS count
+              FROM scoped_clicks
+              GROUP BY browser
+              ORDER BY count DESC
+              LIMIT 10
+            ) b
+          ), '[]'::json) AS browsers,
+          COALESCE((
+            SELECT json_agg(row_to_json(o) ORDER BY o.count DESC)
+            FROM (
+              SELECT COALESCE(os, 'Unknown') AS os, COUNT(*)::int AS count
+              FROM scoped_clicks
+              GROUP BY os
+              ORDER BY count DESC
+              LIMIT 10
+            ) o
+          ), '[]'::json) AS os,
+          COALESCE((
+            SELECT json_agg(row_to_json(r) ORDER BY r.count DESC)
+            FROM (
+              SELECT COALESCE(referrer, 'direct') AS referrer, COUNT(*)::int AS count
+              FROM scoped_clicks
+              GROUP BY referrer
+              ORDER BY count DESC
+              LIMIT 10
+            ) r
+          ), '[]'::json) AS referrers,
+          COALESCE((
+            SELECT json_agg(row_to_json(rg) ORDER BY rg.count DESC)
+            FROM (
+              SELECT COALESCE(region, 'Unknown') AS region, country, COUNT(*)::int AS count
+              FROM scoped_clicks
+              WHERE region IS NOT NULL AND region != ''
+              GROUP BY region, country
+              ORDER BY count DESC
+              LIMIT 20
+            ) rg
+          ), '[]'::json) AS regions,
+          COALESCE((
+            SELECT json_agg(row_to_json(gp) ORDER BY gp.count DESC)
+            FROM (
+              SELECT
+                COALESCE(city, '') AS city,
+                COALESCE(region, '') AS region,
+                COALESCE(country, 'Unknown') AS country,
+                latitude,
+                longitude,
+                COUNT(*)::int AS count
+              FROM scoped_clicks
+              WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+              GROUP BY city, region, country, latitude, longitude
+              ORDER BY count DESC
+              LIMIT 100
+            ) gp
+          ), '[]'::json) AS geo_points
+        FROM target_url t
+        `,
+        [shortCode],
+      );
 
-  if (rows.length === 0) {
-    const err = new Error("Short URL not found or has expired.");
-    err.status = 404;
-    throw err;
-  }
+      if (rows.length === 0) {
+        const err = new Error("Short URL not found or has expired.");
+        err.status = 404;
+        throw err;
+      }
 
-  const data = rows[0];
-
-  const { rows: uniqueRows } = await pool.query(
-    "SELECT COUNT(*) as count FROM unique_visitors WHERE short_code = $1",
-    [shortCode],
-  );
-  const uniqueVisitors = parseInt(uniqueRows[0].count, 10) || 0;
-
-  const durationHours =
-    (new Date().getTime() - new Date(data.created_at).getTime()) /
-    (1000 * 60 * 60);
-  const bucketInterval = durationHours <= 48 ? "hour" : "day";
-
-  const [
-    historyRes,
-    deviceRes,
-    countryRes,
-    cityRes,
-    browserRes,
-    osRes,
-    referrerRes,
-    regionRes,
-    geoPointsRes,
-  ] = await Promise.all([
-    pool.query(
-      `
-      SELECT 
-        DATE_TRUNC('${bucketInterval}', clicked_at) as bucket,
-        COUNT(*)::int as total_clicks,
-        COUNT(DISTINCT visitor_hash)::int as unique_clicks
-      FROM click_history 
-      WHERE short_code = $1 
-      GROUP BY bucket
-      ORDER BY bucket ASC
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(device_type, 'desktop') as device, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1
-      GROUP BY device_type
-      ORDER BY count DESC
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(country, 'Unknown') as country, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1 AND country IS NOT NULL AND country != ''
-      GROUP BY country
-      ORDER BY count DESC
-      LIMIT 15
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(city, 'Unknown') as city, country, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1 AND city IS NOT NULL AND city != ''
-      GROUP BY city, country
-      ORDER BY count DESC
-      LIMIT 15
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(browser, 'Unknown') as browser, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1
-      GROUP BY browser
-      ORDER BY count DESC
-      LIMIT 10
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(os, 'Unknown') as os, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1
-      GROUP BY os
-      ORDER BY count DESC
-      LIMIT 10
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(referrer, 'direct') as referrer, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1
-      GROUP BY referrer
-      ORDER BY count DESC
-      LIMIT 10
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT COALESCE(region, 'Unknown') as region, country, COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1 AND region IS NOT NULL AND region != ''
-      GROUP BY region, country
-      ORDER BY count DESC
-      LIMIT 20
-    `,
-      [shortCode],
-    ),
-    pool.query(
-      `
-      SELECT 
-        COALESCE(city, '') as city, 
-        COALESCE(region, '') as region, 
-        COALESCE(country, 'Unknown') as country, 
-        latitude, 
-        longitude, 
-        COUNT(*)::int as count
-      FROM click_history
-      WHERE short_code = $1 AND latitude IS NOT NULL AND longitude IS NOT NULL
-      GROUP BY city, region, country, latitude, longitude
-      ORDER BY count DESC
-      LIMIT 100
-    `,
-      [shortCode],
-    ),
-  ]);
-
-  return {
-    shortCode,
-    shortUrl: `${env.frontendUrl}/${shortCode}`,
-    originalUrl: data.original_url,
-    title: data.title,
-    clicks: data.clicks,
-    uniqueVisitors,
-    history: historyRes.rows,
-    devices: deviceRes.rows,
-    countries: countryRes.rows,
-    cities: cityRes.rows,
-    regions: regionRes.rows,
-    geoPoints: geoPointsRes.rows,
-    browsers: browserRes.rows,
-    os: osRes.rows,
-    referrers: referrerRes.rows,
-    bucketInterval,
-    createdAt: data.created_at,
-    lastVisited: data.last_visited,
-    isProtected: !!data.password_hash,
-    routingRules: data.routing_rules || {},
-  };
+      const data = rows[0];
+      return {
+        shortCode,
+        shortUrl: `${env.frontendUrl}/${shortCode}`,
+        originalUrl: data.original_url,
+        title: data.title,
+        clicks: parseInt(data.clicks, 10) || 0,
+        uniqueVisitors: parseInt(data.unique_visitors, 10) || 0,
+        history: data.history || [],
+        devices: data.devices || [],
+        countries: data.countries || [],
+        cities: data.cities || [],
+        regions: data.regions || [],
+        geoPoints: data.geo_points || [],
+        browsers: data.browsers || [],
+        os: data.os || [],
+        referrers: data.referrers || [],
+        bucketInterval: data.bucket_interval || "hour",
+        createdAt: data.created_at,
+        lastVisited: data.last_visited,
+        isProtected: Boolean(data.is_protected),
+        routingRules: data.routing_rules || {},
+      };
+    },
+  });
 };
 
 export const editUrlDestination = async (
@@ -833,12 +923,8 @@ export const editUrlDestination = async (
     ]);
   }
 
-  // Invalidate Redis Cache
-  try {
-    await redisClient.del(`url:${shortCode}`);
-  } catch (err) {
-    console.error("Redis cache invalidation failed:", err.message);
-  }
+  // Invalidate L1 + L2 Redis Caches
+  await invalidateUrlCache(shortCode);
 
   return { success: true, newUrl: originalUrl };
 };
@@ -868,12 +954,9 @@ export const deleteUrl = async (shortCode, editToken, userId = null) => {
 
   await pool.query("DELETE FROM urls WHERE id = $1", [data.id]);
 
-  // Invalidate Redis Cache
-  try {
-    await redisClient.del(`url:${shortCode}`);
-  } catch (err) {
-    console.error("Redis cache invalidation failed:", err.message);
-  }
+  // Invalidate L1 + L2 Redis Caches & Platform stats
+  await invalidateUrlCache(shortCode);
+  statsL1Cache.delete("platform_stats");
 
   return { success: true };
 };
@@ -890,9 +973,36 @@ export const checkAliasAvailability = async (alias) => {
     err.status = 400;
     throw err;
   }
+
+  const cached = urlL1Cache.get(`url:${alias}`);
+  if (isNegativeCacheHit(cached)) {
+    return { available: true };
+  }
+  if (cached && (!cached.expires_at || cached.expires_at > new Date())) {
+    return { available: false };
+  }
+
+  if (redisClient?.isReady) {
+    try {
+      const redisCached = await redisClient.hGetAll(`url:${alias}`);
+      if (redisCached && redisCached.original_url) {
+        const exp = redisCached.expires_at ? new Date(redisCached.expires_at) : null;
+        if (!exp || exp > new Date()) {
+          return { available: false };
+        }
+      }
+    } catch {
+      // Fallback to DB
+    }
+  }
+
   const { rows } = await pool.query(
     "SELECT id FROM urls WHERE short_code = $1",
     [alias],
   );
-  return { available: rows.length === 0 };
+  if (rows.length === 0) {
+    await markUrlMissing(alias, 15);
+    return { available: true };
+  }
+  return { available: false };
 };

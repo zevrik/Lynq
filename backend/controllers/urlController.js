@@ -14,6 +14,7 @@ import {
 import { checkSecurity } from "../services/securityService.js";
 import { getClientIp } from "../utils/telemetry.js";
 import { RATE_LIMITS, getRateLimitUsage } from "../middlewares/rateLimiter.js";
+import { statsL1Cache, getOrLoadJson } from "../utils/dbCache.js";
 
 /**
  * POST /api/shorten
@@ -362,22 +363,33 @@ export const handleExportCsv = async (req, res, next) => {
  */
 export const handleGetPlatformStats = async (_req, res, next) => {
   try {
-    const start = performance.now();
+    const baseStats = await getOrLoadJson({
+      l1Cache: statsL1Cache,
+      cacheKey: "platform_stats",
+      l1TtlMs: 15_000,
+      redisTtlSec: 30,
+      loader: async () => {
+        const [statsRes, countriesRes] = await Promise.all([
+          pool.query(`
+            SELECT 
+              COUNT(*)::int AS total_links,
+              COALESCE(SUM(clicks), 0)::int AS total_redirects
+            FROM urls
+          `),
+          pool.query(`
+            SELECT COUNT(DISTINCT country)::int AS countries_count
+            FROM click_history
+            WHERE country IS NOT NULL AND country != 'Unknown' AND country != ''
+          `),
+        ]);
 
-    const statsQuery = pool.query(`
-      SELECT 
-        COUNT(*)::int AS total_links,
-        COALESCE(SUM(clicks), 0)::int AS total_redirects
-      FROM urls
-    `);
-
-    const countriesQuery = pool.query(`
-      SELECT COUNT(DISTINCT country)::int AS countries_count
-      FROM click_history
-      WHERE country IS NOT NULL AND country != 'Unknown' AND country != ''
-    `);
-
-    const [statsRes, countriesRes] = await Promise.all([statsQuery, countriesQuery]);
+        return {
+          totalLinks: statsRes.rows[0]?.total_links || 0,
+          totalRedirects: statsRes.rows[0]?.total_redirects || 0,
+          countriesCount: countriesRes.rows[0]?.countries_count || 0,
+        };
+      },
+    });
 
     let latencyMs = 12;
     if (redisClient && redisClient.isReady) {
@@ -388,16 +400,10 @@ export const handleGetPlatformStats = async (_req, res, next) => {
       } catch {}
     }
 
-    const totalLinks = statsRes.rows[0]?.total_links || 0;
-    const totalRedirects = statsRes.rows[0]?.total_redirects || 0;
-    const countriesCount = countriesRes.rows[0]?.countries_count || 0;
-
     return res.status(200).json({
       success: true,
       stats: {
-        totalLinks,
-        totalRedirects,
-        countriesCount,
+        ...baseStats,
         latencyMs,
         uptime: "99.99%",
       },

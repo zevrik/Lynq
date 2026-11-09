@@ -1,5 +1,6 @@
 import client from "../config/redis.js";
 import pool from "../config/db.js";
+import { urlL1Cache, isNegativeCacheHit, markUrlMissing } from "../utils/dbCache.js";
 
 const CACHE_TTL = 300; // 5 minutes
 const CHECK_TIMEOUT_MS = 6000; // 6 second timeout for HEAD request
@@ -24,19 +25,47 @@ export const checkUrlStatus = async (shortCode) => {
     // Redis miss or error — proceed to live check
   }
 
-  // 2. Look up the destination URL from the DB
-  const { rows } = await pool.query(
-    "SELECT original_url FROM urls WHERE short_code = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
-    [shortCode],
-  );
-
-  if (rows.length === 0) {
+  // 2. Resolve destination URL from L1 RAM -> Redis URL Hash -> PostgreSQL
+  let destinationUrl = null;
+  const l1Hit = urlL1Cache.get(`url:${shortCode}`);
+  if (isNegativeCacheHit(l1Hit)) {
     const err = new Error("Short URL not found or has expired.");
     err.status = 404;
     throw err;
   }
+  if (l1Hit && l1Hit.original_url && (!l1Hit.expires_at || l1Hit.expires_at > new Date())) {
+    destinationUrl = l1Hit.original_url;
+  }
 
-  const destinationUrl = rows[0].original_url;
+  if (!destinationUrl && client?.isReady) {
+    try {
+      const urlHash = await client.hGetAll(`url:${shortCode}`);
+      if (urlHash && urlHash.original_url) {
+        const exp = urlHash.expires_at ? new Date(urlHash.expires_at) : null;
+        if (!exp || exp > new Date()) {
+          destinationUrl = urlHash.original_url;
+        }
+      }
+    } catch {
+      // Fall through to Postgres
+    }
+  }
+
+  if (!destinationUrl) {
+    const { rows } = await pool.query(
+      "SELECT original_url FROM urls WHERE short_code = $1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
+      [shortCode],
+    );
+
+    if (rows.length === 0) {
+      await markUrlMissing(shortCode, 15);
+      const err = new Error("Short URL not found or has expired.");
+      err.status = 404;
+      throw err;
+    }
+
+    destinationUrl = rows[0].original_url;
+  }
 
   // 3. Fire a HEAD request (no body download, very fast)
   const startTime = Date.now();

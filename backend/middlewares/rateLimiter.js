@@ -90,26 +90,37 @@ const STORE_PREFIXES = {
  */
 export const getRateLimitUsage = async (req) => {
   const identity = resolveRateLimitIdentity(req);
-  const readCount = async (prefix) => {
-    if (!client?.isReady) return 0;
-    try {
-      const val = await client.get(`${prefix}${identity.key}`);
-      const parsed = parseInt(val || "0", 10);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    } catch {
-      return 0;
-    }
+  const keys = [
+    `${STORE_PREFIXES.shortenMin}${identity.key}`,
+    `${STORE_PREFIXES.shortenHr}${identity.key}`,
+    `${STORE_PREFIXES.shortenDay}${identity.key}`,
+  ];
+
+  const parseCounter = (val) => {
+    const parsed = parseInt(val || "0", 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   };
 
-  const [perMinute, perHour, perDay] = await Promise.all([
-    readCount(STORE_PREFIXES.shortenMin),
-    readCount(STORE_PREFIXES.shortenHr),
-    readCount(STORE_PREFIXES.shortenDay),
-  ]);
+  let rawValues = [null, null, null];
+  if (client?.isReady) {
+    try {
+      if (typeof client.mGet === "function") {
+        rawValues = await client.mGet(keys);
+      } else {
+        rawValues = await Promise.all(keys.map((k) => client.get(k).catch(() => null)));
+      }
+    } catch {
+      rawValues = [null, null, null];
+    }
+  }
 
   return {
     identity,
-    usage: { perMinute, perHour, perDay },
+    usage: {
+      perMinute: parseCounter(rawValues[0]),
+      perHour: parseCounter(rawValues[1]),
+      perDay: parseCounter(rawValues[2]),
+    },
   };
 };
 
